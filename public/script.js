@@ -673,3 +673,7 @@ async function showOrders(){
 loadFoods();
 
 displayCart();
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js");
+}
