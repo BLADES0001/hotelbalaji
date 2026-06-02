@@ -1,170 +1,181 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-
-  <title>Hotel Balaji Inn Login</title>
-
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <title>Foodza OTP Login</title>
   <style>
-
-    *{
-      margin:0;
-      padding:0;
-      box-sizing:border-box;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      align-items: center;
+      background: linear-gradient(135deg, #111, #2d2107);
+      display: flex;
+      font-family: Arial, sans-serif;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
     }
-
-    body{
-      font-family:Arial;
-      background:#111;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      height:100vh;
-      padding:20px;
+    .box {
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+      max-width: 400px;
+      padding: 30px 22px;
+      text-align: center;
+      width: 100%;
     }
-
-    .box{
-
-      background:#222;
-      width:100%;
-      max-width:350px;
-
-      padding:30px 20px;
-
-      border-radius:20px;
-
-      text-align:center;
-
-      box-shadow:0 0 20px rgba(0,0,0,0.5);
-
+    .logo { margin-bottom: 10px; width: 90px; }
+    h1 { color: #222; margin-bottom: 8px; }
+    p { color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
+    input {
+      border: 1px solid #ddd;
+      border-radius: 13px;
+      font-size: 16px;
+      margin-top: 12px;
+      padding: 14px;
+      width: 100%;
     }
-
-    .logo{
-      width:90px;
-      margin-bottom:10px;
+    button {
+      background: #d89c13;
+      border: 0;
+      border-radius: 13px;
+      color: #111;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 12px;
+      padding: 14px;
+      width: 100%;
     }
-
-    h1{
-      color:white;
-      margin-bottom:25px;
-      font-size:28px;
+    button:disabled { cursor: not-allowed; opacity: .6; }
+    .secondary { background: #222; color: white; }
+    .otp-panel {
+      background: #fff8e6;
+      border: 1px dashed #d89c13;
+      border-radius: 14px;
+      color: #5a3b00;
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
     }
-
-    input{
-
-      width:100%;
-
-      padding:14px;
-
-      margin-top:15px;
-
-      border:none;
-
-      border-radius:10px;
-
-      font-size:16px;
-
+    .otp-panel strong { display: block; font-size: 22px; letter-spacing: 4px; margin-top: 6px; }
+    .status { min-height: 20px; margin-top: 12px; }
+    .back-link {
+      color: #9b6b00;
+      display: inline-block;
+      font-size: 14px;
+      margin-top: 16px;
+      text-decoration: none;
     }
-
-    button{
-
-      width:100%;
-
-      padding:14px;
-
-      margin-top:20px;
-
-      border:none;
-
-      border-radius:10px;
-
-      background:orange;
-
-      color:black;
-
-      font-size:18px;
-
-      font-weight:bold;
-
-      cursor:pointer;
-
-    }
-
-    button:hover{
-      opacity:0.9;
-    }
-
   </style>
-
 </head>
-
 <body>
+  <div class="box">
+    <img src="/logo.png" class="logo" alt="Foodza">
+    <h1>Foodza OTP Login</h1>
+    <p>Enter your mobile number. Foodza will send a one-time passcode by SMS.</p>
 
-<div class="box">
+    <input type="text" id="name" placeholder="Your name (first time only)">
+    <input type="tel" id="mobile" placeholder="Mobile number" inputmode="numeric">
+    <button id="sendBtn" onclick="sendOtp()">Send OTP</button>
 
-  <img src="/logo.png" class="logo">
+    <section id="otpSection" hidden>
+      <input type="tel" id="otp" placeholder="Enter 6-digit OTP" inputmode="numeric" maxlength="6">
+      <button class="secondary" id="verifyBtn" onclick="verifyOtp()">Verify OTP & Login</button>
+      <button type="button" onclick="sendOtp()">Resend OTP</button>
+    </section>
 
-  <h1>Hotel Balaji Inn</h1>
+    <div id="devOtpBox" class="otp-panel">
+      Development SMS OTP
+      <strong id="devOtp"></strong>
+      <small>Shown because no real SMS provider is connected yet.</small>
+    </div>
 
-  <input
-    type="text"
-    id="name"
-    placeholder="Enter Your Name"
-  >
+    <p id="status" class="status"></p>
+    <a class="back-link" href="/">Back to Foodza</a>
+  </div>
 
-  <input
-    type="tel"
-    id="mobile"
-    placeholder="Enter Mobile Number"
-  >
+  <script>
+    const statusEl = document.getElementById("status");
+    const otpSection = document.getElementById("otpSection");
+    const devOtpBox = document.getElementById("devOtpBox");
+    const devOtp = document.getElementById("devOtp");
 
-  <button onclick="login()">
-    Continue
-  </button>
+    function formValues() {
+      return {
+        name: document.getElementById("name").value.trim(),
+        mobile: document.getElementById("mobile").value.replace(/\D/g, ""),
+        otp: document.getElementById("otp").value.trim()
+      };
+    }
 
-</div>
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.style.color = isError ? "#b00020" : "#1f7a1f";
+    }
 
-<script>
+    function saveSession(customer) {
+      localStorage.removeItem("cart");
+      localStorage.setItem("customerName", customer.name);
+      localStorage.setItem("customerMobile", customer.mobile);
+      localStorage.setItem("customer", JSON.stringify(customer));
+      window.location.href = "/";
+    }
 
-localStorage.removeItem("cart");
+    async function postJson(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        throw new Error(data.message || "Request failed");
+      }
+      return data;
+    }
 
-function login(){
+    async function sendOtp() {
+      const data = formValues();
+      if (data.mobile.length < 10) {
+        setStatus("Enter a valid mobile number.", true);
+        return;
+      }
 
-  const name =
-  document.getElementById("name").value;
+      document.getElementById("sendBtn").disabled = true;
+      try {
+        const result = await postJson("/customer-otp/request", { mobile: data.mobile });
+        otpSection.hidden = false;
+        setStatus(result.message || "OTP sent.");
+        if (result.devOtp) {
+          devOtp.textContent = result.devOtp;
+          devOtpBox.style.display = "block";
+          document.getElementById("otp").value = result.devOtp;
+        }
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        document.getElementById("sendBtn").disabled = false;
+      }
+    }
 
-  const mobile =
-  document.getElementById("mobile").value;
+    async function verifyOtp() {
+      const data = formValues();
+      if (data.mobile.length < 10 || data.otp.length !== 6) {
+        setStatus("Enter mobile number and 6-digit OTP.", true);
+        return;
+      }
 
-  if(name.trim() == ""){
-    alert("Enter your name");
-    return;
-  }
-
-  if(mobile.length < 10){
-    alert("Enter valid mobile number");
-    return;
-  }
-
-  // CLEAR OLD CART
-  localStorage.removeItem("cart");
-
-  localStorage.setItem(
-    "customerName",
-    name
-  );
-
-  localStorage.setItem(
-    "customerMobile",
-    mobile
-  );
-
-  window.location.href = "/";
-
-}
-
-</script>
-
+      document.getElementById("verifyBtn").disabled = true;
+      try {
+        const result = await postJson("/customer-otp/verify", data);
+        saveSession(result.customer);
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        document.getElementById("verifyBtn").disabled = false;
+      }
+    }
+  </script>
 </body>
 </html>

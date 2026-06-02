@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Owner Panel</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f5f5f5;
+padding:20px;
+}
+
+.card{
+background:white;
+padding:20px;
+margin-bottom:20px;
+border-radius:15px;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+button{
+padding:10px 20px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+margin-right:10px;
+}
+
+.approve{
+background:green;
+color:white;
+}
+
+.reject{
+background:red;
+color:white;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>Owner Approval Panel</h1>
+
+<div id="restaurants"></div>
+
+<script>
+
+async function loadRestaurants(){
+
+const res = await fetch(
+'/restaurants'
+);
+
+const data = await res.json();
+
+document.getElementById(
+'restaurants'
+).innerHTML =
+
+data.map(r => `
+
+<div class="card">
+
+<h2>${r.hotelName}</h2>
+
+<p>
+Owner:
+${r.ownerName}
+</p>
+
+<p>
+Mobile:
+${r.mobile}
+</p>
+
+<p>
+Status:
+${r.approved
+? "Approved"
+: "Pending"}
+</p>
+
+<button
+class="approve"
+onclick="approve(${r.id})">
+
+Approve
+
+</button>
+
+</div>
+
+`).join("");
+
+}
+
+async function approve(id){
+
+await fetch(
+'/approve-restaurant/' + id,
+{
+method:'POST'
+}
+);
+
+loadRestaurants();
+
+}
+
+loadRestaurants();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foodza Restaurant Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { padding: 18px; }
+    .dashboard { margin: auto; max-width: 980px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); padding: 16px; }
+    .bar { align-items: end; display: flex; gap: 8px; height: 140px; }
+    .bar span { background: #d39b1a; border-radius: 8px 8px 0 0; flex: 1; min-height: 6px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border-bottom: 1px solid #eee; padding: 10px; text-align: left; }
+    select, input, button { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
+  </style>
+</head>
+<body>
+  <main class="dashboard">
+    <h1>Restaurant Dashboard</h1>
+    <p class="muted">Login username is used to load analytics.</p>
+    <div class="panel">
+      <input id="username" placeholder="Restaurant username" value="hotelbalajiinn">
+      <button onclick="loadDashboard()">Load dashboard</button>
+    </div>
+    <section id="stats" class="grid"></section>
+    <section class="panel">
+      <h2>Revenue chart</h2>
+      <div id="chart" class="bar"></div>
+    </section>
+    <section class="panel">
+      <h2>Top selling foods</h2>
+      <div id="topFoods"></div>
+    </section>
+    <section class="panel">
+      <h2>Live orders</h2>
+      <div id="orders"></div>
+    </section>
+  </main>
+  <script>
+    async function json(url, options) {
+      const res = await fetch(url, options);
+      return res.json();
+    }
+    function rupee(value) {
+      return "₹" + Math.round(Number(value) || 0);
+    }
+    async function loadDashboard() {
+      const username = document.getElementById("username").value.trim();
+      const data = await json("/restaurant-dashboard-data/" + username);
+      const a = data.analytics;
+      document.getElementById("stats").innerHTML = [
+        ["Daily sales", rupee(a.dailySales)],
+        ["Weekly sales", rupee(a.weeklySales)],
+        ["Monthly sales", rupee(a.monthlySales)],
+        ["Total orders", a.totalOrders],
+        ["Total revenue", rupee(a.totalRevenue)],
+        ["Pending", a.pendingOrders],
+        ["Accepted", a.acceptedOrders],
+        ["Completed", a.completedOrders]
+      ].map(([label, value]) => `<div class="panel"><p>${label}</p><h2>${value}</h2></div>`).join("");
+      const max = Math.max(...a.revenueChart.map(item => item.revenue), 1);
+      document.getElementById("chart").innerHTML = a.revenueChart
+        .map(item => `<span title="${item.date}: ${rupee(item.revenue)}" style="height:${Math.max(6, item.revenue / max * 130)}px"></span>`)
+        .join("");
+      document.getElementById("topFoods").innerHTML = a.topSellingFoods.length
+        ? `<table><tr><th>Food</th><th>Qty</th><th>Revenue</th></tr>${a.topSellingFoods.map(food => `<tr><td>${food.name}</td><td>${food.quantity}</td><td>${rupee(food.revenue)}</td></tr>`).join("")}</table>`
+        : "<p>No sales yet.</p>";
+      const activeOrders = [...data.pendingOrders, ...data.acceptedOrders];
+      document.getElementById("orders").innerHTML = activeOrders.length
+        ? activeOrders.map(order => `
+          <div class="history-card">
+            <strong>${order.orderId}</strong>
+            <p>${order.name || "Customer"} · ${order.status}</p>
+            <select onchange="updateStatus('${order.orderId}', this.value)">
+              ${["received", "preparing", "packed", "out_for_delivery", "delivered"].map(status => `<option value="${status}" ${status === order.status ? "selected" : ""}>${status}</option>`).join("")}
+            </select>
+          </div>
+        `).join("")
+        : "<p>No active orders.</p>";
+    }
+    async function updateStatus(orderId, status) {
+      await json("/order-status/" + orderId, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      loadDashboard();
+    }
+    loadDashboard();
+  </script>
+</body>
+</html>

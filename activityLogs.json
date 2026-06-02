@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1780372602643,
+    "type": "customer_otp_requested",
+    "message": "OTP requested for 9999999999",
+    "details": {
+      "mobile": "9999999999"
+    },
+    "createdAt": 1780372602643
+  },
+  {
+    "id": 1780372602810,
+    "type": "customer_signup_otp",
+    "message": "OTP Test User signed up with OTP",
+    "details": {
+      "mobile": "9999999999"
+    },
+    "createdAt": 1780372602810
+  },
+  {
+    "id": 1780372602812,
+    "type": "customer_login_otp",
+    "message": "OTP Test User logged in with OTP",
+    "details": {
+      "mobile": "9999999999"
+    },
+    "createdAt": 1780372602812
+  },
+  {
+    "id": 1780372624304,
+    "type": "customer_otp_requested",
+    "message": "OTP requested for 8888888888",
+    "details": {
+      "mobile": "8888888888"
+    },
+    "createdAt": 1780372624304
+  },
+  {
+    "id": 1780372634890,
+    "type": "customer_signup_otp",
+    "message": "Browser OTP User signed up with OTP",
+    "details": {
+      "mobile": "8888888888"
+    },
+    "createdAt": 1780372634890
+  },
+  {
+    "id": 1780372634892,
+    "type": "customer_login_otp",
+    "message": "Browser OTP User logged in with OTP",
+    "details": {
+      "mobile": "8888888888"
+    },
+    "createdAt": 1780372634892
+  }
+]

@@ -1,328 +1,184 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-
-  <title>Hotel Balaji Inn</title>
-
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <link rel="stylesheet" href="style.css">
-
+  <meta name="theme-color" content="#d89c13">
+  <title>Foodza</title>
+  <link rel="stylesheet" href="/style.css">
   <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#d89c13">
-
 </head>
-
 <body>
-
-<div class="app">
-
-  <div class="fixed-top">
-
-    <div class="top-icons">
-
-      <div class="menu-btn" onclick="toggleSideMenu()">
-☰
-</div>
-
-<div id="sideMenu" style="
-position:fixed;
-top:0;
-left:-280px;
-width:260px;
-height:100%;
-background:white;
-box-shadow:4px 0 20px rgba(0,0,0,0.15);
-z-index:99999;
-padding:25px;
-transition:0.3s;
-overflow-y:auto;
-">
-
-<div style="
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:25px;
-">
-
-<h2 style="margin:0;">
-Hotel Balaji Inn
-</h2>
-
-<div
-onclick="toggleSideMenu()"
-style="
-font-size:28px;
-cursor:pointer;
-"
->
-×
-</div>
-
-</div>
-
-<div
-onclick="showOrders()"
-style="
-padding:15px;
-border-radius:12px;
-background:#f5f5f5;
-margin-bottom:15px;
-font-weight:bold;
-cursor:pointer;
-"
->
-📦 My Orders
-</div>
-
-<div style="
-padding:15px;
-border-radius:12px;
-background:#f5f5f5;
-line-height:1.8;
-">
-
-<h3 style="margin-top:0;">
-📞 Contact Us
-</h3>
-
-<div>
-+91 9663729867
-</div>
-
-<div>
-+91 08258200347
-</div>
-
-<p style="
-margin-top:15px;
-font-size:14px;
-color:#666;
-">
-
-Thank you for choosing Hotel Balaji Inn.
-
-We are committed to serving delicious food with the best dining experience.
-
-For delivery assistance, reservations, or feedback, feel free to contact us anytime.
-
-</p>
-
-</div>
-
-</div>
-
-      <div class="profile-btn" onclick="toggleProfilePopup()">
-  👤
-</div>
-
-<div id="profilePopup" style="
-display:none;
-position:absolute;
-top:60px;
-right:15px;
-background:white;
-padding:15px;
-border-radius:15px;
-box-shadow:0 4px 20px rgba(0,0,0,0.15);
-z-index:9999;
-min-width:220px;
-">
-
-  <div style="font-weight:bold;font-size:18px;">
-    <span id="profileName"></span>
-  </div>
-
-  <div style="margin-top:6px;color:gray;">
-    <span id="profileMobile"></span>
-  </div>
-
-  <button
-  onclick="logout()"
-  style="
-  margin-top:12px;
-  width:100%;
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  background:#d39b1a;
-  color:white;
-  font-weight:bold;
-  ">
-    Logout
-  </button>
-
-</div>
-
-    </div>
-
-    <div class="logo-box">
-
-      <img src="/logo.png" class="logo">
-
-      <h1>Hotel Balaji Inn</h1>
-
-      <div class="tagline">
-        Great Food, Great Experience
+  <main class="app">
+    <header class="fixed-top">
+      <div class="top-icons">
+        <button class="round-btn" type="button" onclick="toggleSideMenu()" aria-label="Open menu">&#8942;</button>
+        <button id="back-btn" class="back-btn" type="button" onclick="showRestaurants()" hidden>&larr; Back</button>
+        <button class="round-btn" type="button" onclick="toggleProfilePopup()" aria-label="Open profile">&#128100;</button>
       </div>
 
-    </div>
+      <div class="logo-box">
+        <img src="/logo.png" class="logo" alt="Foodza logo">
+        <h1>Foodza</h1>
+        <p class="tagline">Great food, delivered from local restaurants</p>
+      </div>
 
-    <div class="search-box">
+      <div class="search-box">
+        <span aria-hidden="true">&#128269;</span>
+        <input id="search" type="search" placeholder="Search restaurants..." autocomplete="off">
+      </div>
+      <div id="search-suggestions" class="search-suggestions" hidden></div>
+    </header>
 
-      <span>🔍</span>
+    <aside id="sideMenu" class="side-menu" aria-hidden="true">
+      <div class="side-menu-head">
+        <h2>Foodza</h2>
+        <button type="button" onclick="toggleSideMenu()" aria-label="Close menu">&times;</button>
+      </div>
+      <button class="side-link" type="button" onclick="showOrders(); closeSideMenu()">My orders</button>
+      <button class="side-link" type="button" onclick="openProfilePage(); closeSideMenu()">Profile & addresses</button>
+      <button class="side-link" type="button" onclick="showRecommendations(); closeSideMenu()">AI recommendations</button>
+      <button class="side-link" type="button" onclick="showTrendingFoods(); closeSideMenu()">Trending foods</button>
+      <button class="side-link" type="button" onclick="showFavouriteRestaurants(); closeSideMenu()">Favourite restaurants</button>
+      <button class="side-link" type="button" onclick="showFavouriteFoods(); closeSideMenu()">Favourite foods</button>
+      <button class="side-link" type="button" onclick="showWalletReferral(); closeSideMenu()">Wallet & referral</button>
+      <button class="side-link" type="button" onclick="detectCustomerLocation(); closeSideMenu()">Detect location</button>
+      <button class="side-link" type="button" onclick="enableNotifications(); closeSideMenu()">Enable notifications</button>
+      <button class="side-link" type="button" onclick="toggleDarkMode(); closeSideMenu()">Dark mode</button>
+      <button class="side-link" type="button" onclick="showOrderHistory(); closeSideMenu()">Order history</button>
+      <a class="side-link side-anchor" href="/restaurant-dashboard.html">Restaurant dashboard</a>
+      <a class="side-link side-anchor" href="/platform-admin.html">Platform admin</a>
+      <section class="contact-card">
+        <h3>Contact us</h3>
+        <p>+91 9663729867</p>
+        <p>+91 08258200347</p>
+      </section>
+    </aside>
 
-      <input
-      id="search"
-      placeholder="Search food..."
-      >
+    <section id="profilePopup" class="profile-popup" hidden>
+      <strong id="profileName"></strong>
+      <span id="profileMobile"></span>
+      <button type="button" onclick="logout()">Logout</button>
+      <button type="button" onclick="openProfilePage()">Profile</button>
+    </section>
 
-    </div>
+    <section id="restaurant-view" class="content-view">
+      <section id="popular-section" class="browse-section">
+        <div class="section-heading">
+          <h2>Popular restaurants</h2>
+          <span>Top picks near you</span>
+        </div>
+        <div id="popular-restaurants" class="restaurant-list featured-list"></div>
+      </section>
 
-    
-      <div class="categories">
+      <section id="recent-section" class="browse-section" hidden>
+        <div class="section-heading">
+          <h2>Recently viewed</h2>
+          <button class="text-btn" type="button" onclick="clearRecentlyViewed()">Clear</button>
+        </div>
+        <div id="recent-restaurants" class="restaurant-list featured-list"></div>
+      </section>
 
-  <button class="cat active" onclick="filterCategory('All')">All</button>
+      <div class="section-heading all-restaurants-heading">
+        <h2>All restaurants</h2>
+        <span id="restaurant-count"></span>
+      </div>
+      <div class="filter-row">
+        <button type="button" onclick="setRestaurantFilter('all')" class="filter-chip active" data-filter="all">All</button>
+        <button type="button" onclick="setRestaurantFilter('open')" class="filter-chip" data-filter="open">Open now</button>
+        <button type="button" onclick="setRestaurantFilter('free')" class="filter-chip" data-filter="free">Free delivery</button>
+        <button type="button" onclick="setRestaurantFilter('top')" class="filter-chip" data-filter="top">Top rated</button>
+        <button type="button" onclick="setRestaurantFilter('fast')" class="filter-chip" data-filter="fast">Fast delivery</button>
+        <button type="button" onclick="setRestaurantFilter('favourites')" class="filter-chip" data-filter="favourites">Favourites</button>
+      </div>
+      <div class="advanced-filter-row">
+        <select id="ratingFilter" onchange="renderRestaurants()" aria-label="Minimum rating">
+          <option value="0">Any rating</option>
+          <option value="4">4.0+ rating</option>
+          <option value="4.5">4.5+ rating</option>
+        </select>
+        <select id="deliveryFilter" onchange="renderRestaurants()" aria-label="Delivery time">
+          <option value="999">Any ETA</option>
+          <option value="30">Under 30 min</option>
+          <option value="45">Under 45 min</option>
+        </select>
+        <select id="sortFilter" onchange="renderRestaurants()" aria-label="Sort restaurants">
+          <option value="recommended">Recommended</option>
+          <option value="rating">Highest rated</option>
+          <option value="eta">Fastest first</option>
+          <option value="delivery">Lowest delivery charge</option>
+        </select>
+      </div>
+      <div id="restaurants" class="restaurant-list"></div>
+      <button id="loadMoreRestaurants" class="load-more-btn" type="button" onclick="loadMoreRestaurants()" hidden>Load more restaurants</button>
+    </section>
 
-  <button class="cat" onclick="filterCategory('Appetizea')">Appetizea</button>
+    <section id="menu-view" class="content-view" hidden>
+      <div class="restaurant-heading">
+        <h2 id="selected-restaurant-name"></h2>
+        <p id="selected-restaurant-city"></p>
+      </div>
+      <section id="recommended-section" class="menu-showcase" hidden>
+        <div class="section-heading">
+          <h2>Recommended</h2>
+          <span>Handpicked for you</span>
+        </div>
+        <div id="recommended-foods" class="food-strip"></div>
+      </section>
+      <section id="popular-dishes-section" class="menu-showcase" hidden>
+        <div class="section-heading">
+          <h2>Popular dishes</h2>
+          <span>Most loved items</span>
+        </div>
+        <div id="popular-foods" class="food-strip"></div>
+      </section>
+      <div id="categories" class="categories"></div>
+      <div id="food-list" class="food-list"></div>
+    </section>
+  </main>
 
-  <button class="cat" onclick="filterCategory('Salad')">Salad</button>
+  <button class="cart-toggle" type="button" onclick="toggleCart()">
+    Cart (<span id="cart-count">0</span>)
+  </button>
 
-  <button class="cat" onclick="filterCategory('Raita')">Raita</button>
-
-  <button class="cat" onclick="filterCategory('Soup Veg')">Soup Veg</button>
-
-  <button class="cat" onclick="filterCategory('Soup Non Veg')">Soup Non Veg</button>
-
-  <button class="cat" onclick="filterCategory('Starter Veg')">Starter Veg</button>
-
-  <button class="cat" onclick="filterCategory('Egg Dishes')">Egg Dishes</button>
-
-  <button class="cat" onclick="filterCategory('South Indian Starters')">South Indian Starters</button>
-
-  <button class="cat" onclick="filterCategory('Sea Food')">Sea Food</button>
-
-  <button class="cat" onclick="filterCategory('South Indian Main Course')">South Indian Main Course</button>
-
-  <button class="cat" onclick="filterCategory('Tandoori Veg')">Tandoori Veg</button>
-
-  <button class="cat" onclick="filterCategory('Tandoori Non Veg')">Tandoori Non Veg</button>
-
-  <button class="cat" onclick="filterCategory('Chinese Veg')">Chinese Veg</button>
-
-  <button class="cat" onclick="filterCategory('Chinese Non Veg')">Chinese Non Veg</button>
-
-  <button class="cat" onclick="filterCategory('Chinese Rice Veg')">Chinese Rice Veg</button>
-
-  <button class="cat" onclick="filterCategory('Chinese Rice Non Veg')">Chinese Rice Non Veg</button>
-
-  <button class="cat" onclick="filterCategory('Noodles Veg')">Noodles Veg</button>
-
-  <button class="cat" onclick="filterCategory('Noodles Non Veg')">Noodles Non Veg</button>
-
-  <button class="cat" onclick="filterCategory('North Indian Veg')">North Indian Veg</button>
-
-  <button class="cat" onclick="filterCategory('North Indian Non Veg')">North Indian Non Veg</button>
-
-  <button class="cat" onclick="filterCategory('Rotti')">Rotti</button>
-
-  <button class="cat" onclick="filterCategory('Biryani Veg')">Biryani Veg</button>
-
-  <button class="cat" onclick="filterCategory('Biryani Non Veg')">Biryani Non Veg</button>
-
-  <button class="cat" onclick="filterCategory('Rice')">Rice</button>
-
-  <button class="cat" onclick="filterCategory('Mocktails')">Mocktails</button>
-
-  <button class="cat" onclick="filterCategory('Fruit Juice')">Fruit Juice</button>
-
-  <button class="cat" onclick="filterCategory('Milk Shake')">Milk Shake</button>
-
-  <button class="cat" onclick="filterCategory('Desserts')">Desserts</button>
-
-  <button class="cat" onclick="filterCategory('Aerated Drinks')">Aerated Drinks</button>
-
-</div>
-
-
-  </div>
-
-  <div id="menu-section">
-
-    <div id="food-list"></div>
-
-  </div>
-
-  <!-- FLOATING CART BUTTON -->
-
-  <div class="cart-toggle" onclick="toggleCart()">
-    🛒 Cart (<span id="cart-count">0</span>)
-  </div>
-
-  <!-- CART POPUP -->
-
-  <div class="cart" id="cartBox">
-
+  <section class="cart" id="cartBox" aria-label="Shopping cart">
     <div class="cart-top">
-
-      <div class="cart-title">
-        🛒 Your Cart
+      <div>
+        <h2>Your cart</h2>
+        <p id="cartRestaurant" class="cart-restaurant"></p>
       </div>
-
-      <div class="clear-cart" onclick="clearCart()">
-  Clear
-</div>
-
+      <button class="text-btn" type="button" onclick="clearCart()">Clear</button>
     </div>
-
     <div id="cart"></div>
+    <div class="checkout-form">
+      <select id="orderType" onchange="toggleOrderType()" aria-label="Order type">
+        <option value="pickup">Pickup in restaurant</option>
+        <option value="delivery">Delivery</option>
+      </select>
+      <div id="deliveryBox" hidden>
+        <select id="addressSelect" aria-label="Select delivery address"></select>
+        <textarea id="deliveryInstructions" placeholder="Delivery instructions"></textarea>
+        <button type="button" onclick="getLiveLocation()">Share live location</button>
+        <p id="locationStatus"></p>
+      </div>
+      <select id="paymentMethod" aria-label="Payment method">
+        <option value="cod">Cash on delivery</option>
+        <option value="upi">UPI payment placeholder</option>
+        <option value="wallet">Foodza wallet</option>
+      </select>
+      <input id="couponCode" placeholder="Coupon code">
+      <button class="text-btn" type="button" onclick="applyCoupon()">Apply coupon</button>
+      <button class="checkout-btn" type="button" onclick="checkout()">Checkout</button>
+    </div>
+  </section>
 
-    <div class="bottom-row" style="display:flex;flex-direction:column;gap:10px;">
+  <section id="appModal" class="app-modal" hidden>
+    <div class="modal-card">
+      <button class="modal-close" type="button" onclick="closeModal()">&times;</button>
+      <div id="modalContent"></div>
+    </div>
+  </section>
 
-  <!-- ORDER TYPE -->
-
-  <select id="orderType" onchange="toggleOrderType()">
-    <option value="dinein">Dine In</option>
-    <option value="delivery">Delivery</option>
-  </select>
-
-  <!-- TABLE NUMBER -->
-
-  <input
-    type="text"
-    id="tableNo"
-    placeholder="Enter Table No"
-  >
-
-  <!-- DELIVERY LOCATION -->
-
-  <div id="deliveryBox" style="display:none;">
-
-    <button onclick="getLiveLocation()">
-      📍 Share Live Location
-    </button>
-
-    <div id="locationStatus"></div>
-
-  </div>
-
-  <button
-    class="checkout-btn"
-    onclick="checkout()"
-  >
-    Checkout →
-  </button>
-
-</div>
-
-  </div>
-
-</div>
-
-<script src="script.js"></script>
-
+  <script src="/script.js"></script>
 </body>
-
 </html>

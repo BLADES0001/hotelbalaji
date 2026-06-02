@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foodza Platform Admin</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { padding: 18px; }
+    .admin { margin: auto; max-width: 1100px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); padding: 16px; }
+    input, button { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border-bottom: 1px solid #eee; padding: 9px; text-align: left; }
+  </style>
+</head>
+<body>
+  <main class="admin">
+    <h1>Foodza Platform Admin</h1>
+    <section id="stats" class="grid"></section>
+    <section class="panel">
+      <h2>Search</h2>
+      <input id="q" placeholder="Search users, restaurants, orders">
+      <button onclick="searchAll()">Search</button>
+      <div id="searchResults"></div>
+    </section>
+    <section class="panel">
+      <h2>Restaurants</h2>
+      <div id="restaurants"></div>
+    </section>
+    <section class="panel">
+      <h2>Recent orders</h2>
+      <div id="orders"></div>
+    </section>
+    <section class="panel">
+      <h2>Activity logs</h2>
+      <div id="logs"></div>
+    </section>
+  </main>
+  <script>
+    async function json(url, options) {
+      const res = await fetch(url, options);
+      return res.json();
+    }
+    function rupee(value) {
+      return "₹" + Math.round(Number(value) || 0);
+    }
+    async function loadAdmin() {
+      const [stats, restaurants, orders, logs] = await Promise.all([
+        json("/admin-stats"),
+        json("/restaurants"),
+        json("/admin-orders"),
+        json("/activity-logs")
+      ]);
+      document.getElementById("stats").innerHTML = [
+        ["Restaurants", stats.restaurants],
+        ["Approved", stats.approvedRestaurants],
+        ["Suspended", stats.suspendedRestaurants],
+        ["Users", stats.users],
+        ["Active orders", stats.activeOrders],
+        ["Revenue", rupee(stats.revenue)]
+      ].map(([label, value]) => `<div class="panel"><p>${label}</p><h2>${value}</h2></div>`).join("");
+      document.getElementById("restaurants").innerHTML = `<table><tr><th>Name</th><th>Status</th><th>Actions</th></tr>${restaurants.map(r => `
+        <tr>
+          <td>${r.hotelName}</td>
+          <td>${r.approved ? "Approved" : "Pending"} ${r.suspended ? "· Suspended" : ""}</td>
+          <td>
+            <button onclick="approve(${r.id})">Approve</button>
+            <button onclick="rejectRestaurant(${r.id})">Reject</button>
+            <button onclick="suspendRestaurant(${r.id})">Suspend</button>
+          </td>
+        </tr>
+      `).join("")}</table>`;
+      document.getElementById("orders").innerHTML = orders.slice(0, 12).map(order => `
+        <div class="history-card"><strong>${order.orderId || order.id}</strong><p>${order.restaurantUsername} · ${order.status || "-"}</p></div>
+      `).join("") || "<p>No orders.</p>";
+      document.getElementById("logs").innerHTML = logs.slice(0, 20).map(log => `
+        <div class="history-card"><strong>${log.type}</strong><p>${log.message}</p></div>
+      `).join("") || "<p>No logs.</p>";
+    }
+    async function approve(id) {
+      await json("/approve-restaurant/" + id, { method: "POST" });
+      loadAdmin();
+    }
+    async function rejectRestaurant(id) {
+      await json("/reject-restaurant/" + id, { method: "POST" });
+      loadAdmin();
+    }
+    async function suspendRestaurant(id) {
+      await json("/suspend-restaurant/" + id, { method: "POST" });
+      loadAdmin();
+    }
+    async function searchAll() {
+      const data = await json("/admin-search?q=" + encodeURIComponent(document.getElementById("q").value));
+      document.getElementById("searchResults").innerHTML = `
+        <p>${data.restaurants.length} restaurants, ${data.users.length} users, ${data.orders.length} orders found.</p>
+      `;
+    }
+    loadAdmin();
+  </script>
+</body>
+</html>

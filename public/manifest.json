@@ -1,7 +1,7 @@
 {
-  "name": "Hotel Balaji Inn",
-  "short_name": "Balaji Inn",
-  "description": "Order delicious Indian dishes, beverages, desserts, and restaurant specials from Hotel Balaji Inn with fast delivery within 5 km.",
+  "name": "Foodza",
+  "short_name": "Foodza",
+  "description": "Order food from local restaurants with Foodza.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f2ed",

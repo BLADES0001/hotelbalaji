@@ -1,0 +1,48 @@
+[
+  {
+    "id": 1780369703341,
+    "name": "Phase Tester",
+    "mobile": "9000000001",
+    "password": "",
+    "wallet": 0,
+    "referralCode": "FZ0001394",
+    "addresses": [
+      {
+        "id": 1780369703379,
+        "label": "Home",
+        "line1": "Test Road",
+        "landmark": "",
+        "city": "Karkala",
+        "pincode": "574104",
+        "instructions": ""
+      }
+    ],
+    "favouriteRestaurants": [],
+    "favouriteFoods": [],
+    "createdAt": 1780369703341
+  },
+  {
+    "id": 1780372602810,
+    "name": "OTP Test User",
+    "mobile": "9999999999",
+    "password": "",
+    "wallet": 0,
+    "referralCode": "FZ9999917",
+    "addresses": [],
+    "favouriteRestaurants": [],
+    "favouriteFoods": [],
+    "createdAt": 1780372602810
+  },
+  {
+    "id": 1780372634890,
+    "name": "Browser OTP User",
+    "mobile": "8888888888",
+    "password": "",
+    "wallet": 0,
+    "referralCode": "FZ8888943",
+    "addresses": [],
+    "favouriteRestaurants": [],
+    "favouriteFoods": [],
+    "createdAt": 1780372634890
+  }
+]
