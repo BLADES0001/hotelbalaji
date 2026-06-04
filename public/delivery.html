@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foodza Delivery</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { padding: 18px; }
+    .page { margin: auto; max-width: 780px; }
+    .panel, .order-card { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); margin-bottom: 14px; padding: 16px; }
+    input, select, button { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
+    button { background: #f0566e; color: white; cursor: pointer; font-weight: 800; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .muted { color: #777; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section id="loginPanel" class="panel">
+      <h1>Delivery Login</h1>
+      <p class="muted">Use the username and password created by the restaurant.</p>
+      <input id="username" placeholder="Delivery username">
+      <input id="password" type="password" placeholder="Password">
+      <button onclick="login()">Login</button>
+    </section>
+    <section id="appPanel" hidden>
+      <div class="panel">
+        <h1 id="title">Delivery Orders</h1>
+        <p class="muted">Update packed, out-for-delivery, and delivered statuses.</p>
+        <button onclick="logout()">Logout</button>
+      </div>
+      <div id="orders"></div>
+    </section>
+  </main>
+  <script>
+    let deliveryMan = JSON.parse(localStorage.getItem("deliveryMan") || "null");
+    async function json(url, options) {
+      const res = await fetch(url, options);
+      const data = await res.json();
+      if (!res.ok || data.success === false) throw new Error(data.message || "Request failed");
+      return data;
+    }
+    function label(status) {
+      return String(status || "").replaceAll("_", " ");
+    }
+    async function login() {
+      const data = await json("/delivery-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value
+        })
+      });
+      deliveryMan = data.deliveryMan;
+      localStorage.setItem("deliveryMan", JSON.stringify(deliveryMan));
+      showApp();
+    }
+    function logout() {
+      localStorage.removeItem("deliveryMan");
+      location.reload();
+    }
+    function showApp() {
+      document.getElementById("loginPanel").hidden = true;
+      document.getElementById("appPanel").hidden = false;
+      document.getElementById("title").textContent = deliveryMan.name + " Delivery Orders";
+      loadOrders();
+    }
+    async function loadOrders() {
+      const orders = await json("/delivery-orders/" + encodeURIComponent(deliveryMan.username));
+      document.getElementById("orders").innerHTML = orders.length ? orders.map(order => `
+        <div class="order-card">
+          <strong>${order.orderId}</strong>
+          <p>${order.name || "Customer"} · ${order.mobile || ""}</p>
+          <p>${(order.items || []).map(item => `${item.name} x${item.quantity}`).join(", ")}</p>
+          <p><b>Status:</b> ${label(order.status)}</p>
+          ${order.location?.mapsLink ? `<a href="${order.location.mapsLink}" target="_blank">Open location</a>` : ""}
+          <div class="row">
+            <button onclick="updateStatus('${order.orderId}', 'out_for_delivery')">Out for delivery</button>
+            <button onclick="updateStatus('${order.orderId}', 'delivered')">Delivered</button>
+          </div>
+        </div>
+      `).join("") : "<div class='panel'>No assigned orders right now.</div>";
+    }
+    async function updateStatus(orderId, status) {
+      await json("/order-status/" + orderId, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      loadOrders();
+    }
+    if (deliveryMan) showApp();
+    setInterval(() => deliveryMan && loadOrders(), 8000);
+  </script>
+</body>
+</html>

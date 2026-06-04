@@ -44,5 +44,19 @@
     "favouriteRestaurants": [],
     "favouriteFoods": [],
     "createdAt": 1780372634890
+  },
+  {
+    "id": 1780502679194,
+    "name": "Pranav",
+    "mobile": "9880520082",
+    "password": "",
+    "wallet": 0,
+    "referralCode": "FZ0082703",
+    "addresses": [],
+    "favouriteRestaurants": [
+      "hotelbalajiinn"
+    ],
+    "favouriteFoods": [],
+    "createdAt": 1780502679194
   }
 ]

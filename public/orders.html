@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foodza Orders</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { padding: 18px; }
+    .page { margin: auto; max-width: 1180px; }
+    .topbar { align-items: center; display: flex; gap: 12px; justify-content: space-between; margin-bottom: 14px; }
+    .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); margin-bottom: 14px; padding: 16px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    input, select, button { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
+    button { background: #fff0f3; color: #dd4059; cursor: pointer; font-weight: 800; }
+    .order-card { border: 1px solid #eee; border-radius: 14px; margin-top: 10px; padding: 12px; }
+    .muted { color: #777; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section id="loginPanel" class="panel">
+      <h1>Restaurant Orders</h1>
+      <p class="muted">Login with restaurant credentials to manage live and completed orders.</p>
+      <input id="username" placeholder="Restaurant username">
+      <input id="password" type="password" placeholder="Password">
+      <button onclick="login()">Login</button>
+    </section>
+
+    <section id="ordersPanel" hidden>
+      <div class="topbar">
+        <div>
+          <h1 id="title">Orders</h1>
+          <p class="muted">Assign delivery staff and update live order status.</p>
+        </div>
+        <div class="row">
+          <a href="/restaurant-dashboard.html">Dashboard</a>
+          <button onclick="logout()">Logout</button>
+        </div>
+      </div>
+      <section id="stats" class="grid"></section>
+      <section class="grid">
+        <div class="panel">
+          <h2>Pending orders</h2>
+          <div id="pending"></div>
+        </div>
+        <div class="panel">
+          <h2>Accepted orders</h2>
+          <div id="accepted"></div>
+        </div>
+        <div class="panel">
+          <h2>Completed orders</h2>
+          <div id="completed"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const statuses = ["received", "preparing", "packed", "out_for_delivery", "delivered"];
+    let restaurant = JSON.parse(localStorage.getItem("restaurant") || "null");
+    async function json(url, options) {
+      const res = await fetch(url, options);
+      const data = await res.json();
+      if (!res.ok || data.success === false) throw new Error(data.message || "Request failed");
+      return data;
+    }
+    function rupee(value) {
+      return "₹" + Math.round(Number(value) || 0);
+    }
+    function label(status) {
+      return String(status || "").replaceAll("_", " ");
+    }
+    async function login() {
+      const data = await json("/restaurant-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value
+        })
+      });
+      restaurant = data.restaurant;
+      localStorage.setItem("restaurant", JSON.stringify(restaurant));
+      showApp();
+    }
+    function logout() {
+      localStorage.removeItem("restaurant");
+      location.reload();
+    }
+    function showApp() {
+      document.getElementById("loginPanel").hidden = true;
+      document.getElementById("ordersPanel").hidden = false;
+      document.getElementById("title").textContent = restaurant.hotelName + " Orders";
+      loadOrders();
+    }
+    function orderCard(order, deliveryMen, completed = false) {
+      const items = (order.items || []).map(item => `${item.name} x${item.quantity}`).join(", ");
+      const deliveryOptions = deliveryMen.map(person =>
+        `<option value="${person.id}" ${person.id === order.deliveryManId ? "selected" : ""}>${person.name}</option>`
+      ).join("");
+      return `
+        <div class="order-card">
+          <strong>${order.orderId || order.id}</strong>
+          <p>${order.name || "Customer"} · ${order.mobile || ""}</p>
+          <p>${items}</p>
+          <p><b>Total:</b> ${rupee(order.pricing?.grandTotal || 0)} · <b>Status:</b> ${label(order.status || "received")}</p>
+          ${order.location?.mapsLink ? `<a href="${order.location.mapsLink}" target="_blank">Open delivery location</a>` : ""}
+          ${order.deliveryManName ? `<p><b>Delivery:</b> ${order.deliveryManName}</p>` : ""}
+          ${completed ? "" : `
+            <div class="row">
+              <select onchange="updateStatus('${order.orderId}', this.value)">
+                ${statuses.map(status => `<option value="${status}" ${status === order.status ? "selected" : ""}>${label(status)}</option>`).join("")}
+              </select>
+              <select id="delivery-${order.orderId}">
+                <option value="">Assign delivery</option>
+                ${deliveryOptions}
+              </select>
+              <button onclick="assignDelivery('${order.orderId}')">Assign</button>
+            </div>
+          `}
+        </div>
+      `;
+    }
+    async function loadOrders() {
+      const data = await json("/restaurant-dashboard-data/" + encodeURIComponent(restaurant.username));
+      const deliveryMen = data.deliveryMen || [];
+      const a = data.analytics;
+      document.getElementById("stats").innerHTML = [
+        ["Total orders", a.totalOrders],
+        ["Pending", a.pendingOrders],
+        ["Accepted", a.acceptedOrders],
+        ["Completed", a.completedOrders],
+        ["Revenue", rupee(a.totalRevenue)]
+      ].map(([label, value]) => `<div class="panel"><p>${label}</p><h2>${value}</h2></div>`).join("");
+      document.getElementById("pending").innerHTML = data.pendingOrders.length ? data.pendingOrders.map(order => orderCard(order, deliveryMen)).join("") : "<p>No pending orders.</p>";
+      document.getElementById("accepted").innerHTML = data.acceptedOrders.length ? data.acceptedOrders.map(order => orderCard(order, deliveryMen)).join("") : "<p>No accepted orders.</p>";
+      document.getElementById("completed").innerHTML = data.completedOrders.length ? data.completedOrders.slice(0, 12).map(order => orderCard(order, deliveryMen, true)).join("") : "<p>No completed orders.</p>";
+    }
+    async function updateStatus(orderId, status) {
+      await json("/order-status/" + orderId, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      loadOrders();
+    }
+    async function assignDelivery(orderId) {
+      const deliveryManId = document.getElementById("delivery-" + orderId).value;
+      if (!deliveryManId) return alert("Select delivery staff");
+      await json("/assign-delivery/" + orderId, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deliveryManId })
+      });
+      loadOrders();
+    }
+    if (restaurant) showApp();
+    setInterval(() => restaurant && loadOrders(), 8000);
+  </script>
+</body>
+</html>

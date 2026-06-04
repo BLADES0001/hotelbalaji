@@ -52,5 +52,184 @@
       "mobile": "8888888888"
     },
     "createdAt": 1780372634892
+  },
+  {
+    "id": 1780500330904,
+    "type": "order_status",
+    "message": "Order FZ1780371897021 moved to preparing",
+    "details": {
+      "orderId": "FZ1780371897021",
+      "status": "preparing"
+    },
+    "createdAt": 1780500330904
+  },
+  {
+    "id": 1780502422008,
+    "type": "order_created",
+    "message": "Order FZ1780502422005 placed",
+    "details": {
+      "mobile": "9880520082",
+      "restaurantUsername": "hotelbalajiinn",
+      "grandTotal": 71.5
+    },
+    "createdAt": 1780502422008
+  },
+  {
+    "id": 1780502674011,
+    "type": "customer_otp_requested",
+    "message": "OTP requested for 9880520082",
+    "details": {
+      "mobile": "9880520082"
+    },
+    "createdAt": 1780502674011
+  },
+  {
+    "id": 1780502679194,
+    "type": "customer_signup_otp",
+    "message": "Pranav signed up with OTP",
+    "details": {
+      "mobile": "9880520082"
+    },
+    "createdAt": 1780502679194
+  },
+  {
+    "id": 1780502679197,
+    "type": "customer_login_otp",
+    "message": "Pranav logged in with OTP",
+    "details": {
+      "mobile": "9880520082"
+    },
+    "createdAt": 1780502679197
+  },
+  {
+    "id": 1780585339095,
+    "type": "delivery_created",
+    "message": "Test Rider added as delivery staff",
+    "details": {
+      "restaurantUsername": "hotelbalajiinn",
+      "username": "rider1780585338058"
+    },
+    "createdAt": 1780585339095
+  },
+  {
+    "id": 1780585956488,
+    "type": "order_status",
+    "message": "Order FZ1780502422005 moved to preparing",
+    "details": {
+      "orderId": "FZ1780502422005",
+      "status": "preparing"
+    },
+    "createdAt": 1780585956488
+  },
+  {
+    "id": 1780585979852,
+    "type": "delivery_assigned",
+    "message": "Test Rider assigned to FZ1780502422005",
+    "details": {
+      "orderId": "FZ1780502422005",
+      "deliveryManUsername": "rider1780585338058"
+    },
+    "createdAt": 1780585979852
+  },
+  {
+    "id": 1780585986511,
+    "type": "order_status",
+    "message": "Order FZ1780502422005 moved to delivered",
+    "details": {
+      "orderId": "FZ1780502422005",
+      "status": "delivered"
+    },
+    "createdAt": 1780585986511
+  },
+  {
+    "id": 1780586041913,
+    "type": "delivery_created",
+    "message": "Pranav added as delivery staff",
+    "details": {
+      "restaurantUsername": "hotelbalajiinn",
+      "username": "pranav"
+    },
+    "createdAt": 1780586041913
+  },
+  {
+    "id": 1780586046661,
+    "type": "delivery_toggled",
+    "message": "Test Rider active status changed",
+    "details": {
+      "username": "rider1780585338058",
+      "active": false
+    },
+    "createdAt": 1780586046661
+  },
+  {
+    "id": 1780586202202,
+    "type": "order_created",
+    "message": "Order FZ1780586202194 placed",
+    "details": {
+      "mobile": "9880520082",
+      "restaurantUsername": "hotelbalajiinn",
+      "grandTotal": 71.5
+    },
+    "createdAt": 1780586202202
+  },
+  {
+    "id": 1780586211912,
+    "type": "order_status",
+    "message": "Order FZ1780586202194 moved to preparing",
+    "details": {
+      "orderId": "FZ1780586202194",
+      "status": "preparing"
+    },
+    "createdAt": 1780586211912
+  },
+  {
+    "id": 1780586245118,
+    "type": "order_status",
+    "message": "Order FZ1780586202194 moved to packed",
+    "details": {
+      "orderId": "FZ1780586202194",
+      "status": "packed"
+    },
+    "createdAt": 1780586245118
+  },
+  {
+    "id": 1780586276122,
+    "type": "order_status",
+    "message": "Order FZ1780586202194 moved to out_for_delivery",
+    "details": {
+      "orderId": "FZ1780586202194",
+      "status": "out_for_delivery"
+    },
+    "createdAt": 1780586276122
+  },
+  {
+    "id": 1780586290247,
+    "type": "delivery_assigned",
+    "message": "Pranav assigned to FZ1780586202194",
+    "details": {
+      "orderId": "FZ1780586202194",
+      "deliveryManUsername": "pranav"
+    },
+    "createdAt": 1780586290247
+  },
+  {
+    "id": 1780586303667,
+    "type": "order_status",
+    "message": "Order FZ1780586202194 moved to out_for_delivery",
+    "details": {
+      "orderId": "FZ1780586202194",
+      "status": "out_for_delivery"
+    },
+    "createdAt": 1780586303667
+  },
+  {
+    "id": 1780586306192,
+    "type": "order_status",
+    "message": "Order FZ1780586202194 moved to delivered",
+    "details": {
+      "orderId": "FZ1780586202194",
+      "status": "delivered"
+    },
+    "createdAt": 1780586306192
   }
 ]

@@ -14,6 +14,7 @@ const state = {
   recentlyViewed: JSON.parse(localStorage.getItem("recentlyViewedRestaurants")) || [],
   customer: null,
   restaurantFilter: "all",
+  restaurantVisibleCount: 6,
   coupon: null
 };
 
@@ -317,6 +318,36 @@ function approvedRestaurants() {
   return state.restaurants.filter(restaurant => restaurant.approved);
 }
 
+function restaurantMatchesFilter(restaurant, text) {
+  const minRating = Number(document.getElementById("ratingFilter")?.value || 0);
+  const maxDeliveryTime = Number(document.getElementById("deliveryFilter")?.value || 999);
+  const rating = Number(restaurant.rating || 0);
+  const eta = Number(restaurant.estimatedDeliveryTime || 999);
+  const favouriteRestaurants = state.customer?.favouriteRestaurants || [];
+
+  return `${restaurant.hotelName} ${restaurant.city}`.toLowerCase().includes(text) &&
+    rating >= minRating &&
+    eta <= maxDeliveryTime &&
+    (
+      state.restaurantFilter === "all" ||
+      (state.restaurantFilter === "open" && restaurant.isOpen) ||
+      (state.restaurantFilter === "free" && Number(restaurant.deliveryCharge) === 0) ||
+      (state.restaurantFilter === "top" && rating >= 4) ||
+      (state.restaurantFilter === "fast" && eta <= 30) ||
+      (state.restaurantFilter === "favourites" && favouriteRestaurants.includes(restaurant.username))
+    );
+}
+
+function sortRestaurants(restaurants) {
+  const sortBy = document.getElementById("sortFilter")?.value || "recommended";
+  return restaurants.slice().sort((a, b) => {
+    if (sortBy === "rating") return Number(b.rating || 0) - Number(a.rating || 0);
+    if (sortBy === "eta") return Number(a.estimatedDeliveryTime || 999) - Number(b.estimatedDeliveryTime || 999);
+    if (sortBy === "delivery") return Number(a.deliveryCharge || 0) - Number(b.deliveryCharge || 0);
+    return Number(b.popular || 0) - Number(a.popular || 0) || Number(b.rating || 0) - Number(a.rating || 0);
+  });
+}
+
 function saveRecentlyViewed(username) {
   state.recentlyViewed = [
     username,
@@ -408,19 +439,18 @@ async function loadRestaurants() {
 
 function renderRestaurants() {
   const text = search.value.trim().toLowerCase();
-  const restaurants = approvedRestaurants().filter(restaurant =>
-    `${restaurant.hotelName} ${restaurant.city}`.toLowerCase().includes(text) &&
-    (
-      state.restaurantFilter === "all" ||
-      (state.restaurantFilter === "open" && restaurant.isOpen) ||
-      (state.restaurantFilter === "free" && Number(restaurant.deliveryCharge) === 0) ||
-      (state.restaurantFilter === "top" && Number(restaurant.rating || 0) >= 4)
-    )
+  const restaurants = sortRestaurants(
+    approvedRestaurants().filter(restaurant => restaurantMatchesFilter(restaurant, text))
   );
+  const visibleRestaurants = restaurants.slice(0, state.restaurantVisibleCount);
 
   document.getElementById("restaurant-count").textContent =
     `${restaurants.length} ${restaurants.length === 1 ? "restaurant" : "restaurants"}`;
-  renderRestaurantCollection(restaurantsDiv, restaurants, "No restaurants found.");
+  renderRestaurantCollection(restaurantsDiv, visibleRestaurants, "No restaurants found.");
+  const loadMoreButton = document.getElementById("loadMoreRestaurants");
+  if (loadMoreButton) {
+    loadMoreButton.hidden = visibleRestaurants.length >= restaurants.length;
+  }
 
   const markedPopularRestaurants = approvedRestaurants()
     .filter(restaurant => restaurant.popular && restaurant.isOpen)
@@ -439,9 +469,15 @@ function renderRestaurants() {
 
 function setRestaurantFilter(filter) {
   state.restaurantFilter = filter;
+  state.restaurantVisibleCount = 6;
   document.querySelectorAll(".filter-chip").forEach(button => {
     button.classList.toggle("active", button.dataset.filter === filter);
   });
+  renderRestaurants();
+}
+
+function loadMoreRestaurants() {
+  state.restaurantVisibleCount += 6;
   renderRestaurants();
 }
 
@@ -886,12 +922,18 @@ async function applyCoupon() {
 }
 
 function showOrderConfirmation(order) {
+  const paymentLabel = {
+    cod: "Cash on delivery",
+    upi: "UPI payment placeholder",
+    wallet: "Foodza wallet"
+  }[order.paymentMethod] || "Cash on delivery";
+
   openModal(`
     <h2>Order confirmed</h2>
     <p class="muted">Order ID</p>
     <h3>${escapeHtml(order.orderId)}</h3>
     <p>Estimated delivery time: <b>${escapeHtml(order.estimatedDeliveryTime)} min</b></p>
-    <p>Payment: ${order.paymentMethod === "upi" ? "UPI payment placeholder" : "Cash on delivery"}</p>
+    <p>Payment: ${paymentLabel}</p>
     <button class="checkout-btn" type="button" onclick="trackOrder('${escapeHtml(order.orderId)}')">Track order</button>
   `);
 }
@@ -917,6 +959,13 @@ async function trackOrder(orderId) {
         </div>
       `).join("")}
     </div>
+    <h3>Status history</h3>
+    ${(order.statusHistory || []).map(item => `
+      <div class="history-card">
+        <strong>${escapeHtml(item.status)}</strong>
+        <p>${new Date(item.time).toLocaleString()}</p>
+      </div>
+    `).join("")}
     <p>Estimated delivery: ${escapeHtml(order.estimatedDeliveryTime || 35)} min</p>
   `);
 }
@@ -974,6 +1023,117 @@ async function showRecommendations() {
   `);
 }
 
+async function showTrendingFoods() {
+  const foods = await fetchJson("/trending-foods");
+  openModal(`
+    <h2>Trending foods</h2>
+    <p class="muted">Popular dishes based on orders and menu popularity.</p>
+    ${foods.length ? foods.map(food => `
+      <div class="history-card">
+        <strong>${escapeHtml(food.name)}</strong>
+        <p>${escapeHtml(food.category || "Food")} - ${money(food.price)} - Ordered ${Number(food.quantity || 0)} times</p>
+      </div>
+    `).join("") : '<p class="muted">No trending foods yet.</p>'}
+  `);
+}
+
+async function showFavouriteRestaurants() {
+  await loadCustomer();
+  const favourites = approvedRestaurants()
+    .filter(restaurant => state.customer?.favouriteRestaurants?.includes(restaurant.username));
+
+  openModal(`
+    <h2>Favourite restaurants</h2>
+    ${favourites.length ? favourites.map(restaurant => `
+      <div class="history-card">
+        <strong>${escapeHtml(restaurant.hotelName)}</strong>
+        <p>${escapeHtml(restaurant.city)} - ${restaurantRating(restaurant)} star - ${restaurant.isOpen ? "Open" : "Closed"}</p>
+        <button type="button" onclick="closeModal(); selectRestaurant('${escapeHtml(restaurant.username)}')">Open menu</button>
+      </div>
+    `).join("") : '<p class="muted">No favourite restaurants yet. Tap the heart on restaurant cards.</p>'}
+  `);
+}
+
+async function showFavouriteFoods() {
+  await loadCustomer();
+  const favouriteIds = state.customer?.favouriteFoods || [];
+  const allMenus = await Promise.all(approvedRestaurants().map(restaurant =>
+    fetchJson(`/menu/${encodeURIComponent(restaurant.username)}`).catch(() => [])
+  ));
+  const favourites = allMenus.flat().filter(food => favouriteIds.includes(Number(food.id)));
+
+  openModal(`
+    <h2>Favourite foods</h2>
+    ${favourites.length ? favourites.map(food => `
+      <div class="history-card">
+        <strong>${escapeHtml(food.name)}</strong>
+        <p>${escapeHtml(food.category || "Food")} - ${money(food.price)}</p>
+      </div>
+    `).join("") : '<p class="muted">No favourite foods yet. Tap the heart on food cards.</p>'}
+  `);
+}
+
+async function showWalletReferral() {
+  await loadCustomer();
+  openModal(`
+    <h2>Wallet & referral</h2>
+    <div class="history-card">
+      <strong>Wallet balance</strong>
+      <p>${money(state.customer.wallet || 0)}</p>
+    </div>
+    <div class="profile-grid">
+      <input id="walletAmount" type="number" min="1" placeholder="Top-up amount">
+      <button class="checkout-btn" type="button" onclick="topUpWallet()">Add money to wallet</button>
+    </div>
+    <div class="history-card">
+      <strong>Your referral code</strong>
+      <p>${escapeHtml(state.customer.referralCode || "Coming soon")}</p>
+    </div>
+    <div class="profile-grid">
+      <input id="referralCodeInput" placeholder="Apply referral code">
+      <button type="button" onclick="applyReferralCode()">Apply referral</button>
+    </div>
+  `);
+}
+
+async function topUpWallet() {
+  const amount = Number(document.getElementById("walletAmount").value || 0);
+  try {
+    state.customer = await fetchJson(`/customer/${encodeURIComponent(customerMobile)}/wallet/topup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount })
+    });
+    localStorage.setItem("customer", JSON.stringify(state.customer));
+    showWalletReferral();
+  } catch (error) {
+    openModal(`
+      <h2>Wallet top-up failed</h2>
+      <p>${escapeHtml(error.message || "Enter a valid top-up amount.")}</p>
+      <button class="checkout-btn" type="button" onclick="showWalletReferral()">Try again</button>
+    `);
+  }
+}
+
+async function applyReferralCode() {
+  const code = document.getElementById("referralCodeInput").value;
+  try {
+    state.customer = await fetchJson(`/customer/${encodeURIComponent(customerMobile)}/referral/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code })
+    });
+    localStorage.setItem("customer", JSON.stringify(state.customer));
+    showWalletReferral();
+  } catch (error) {
+    openModal(`
+      <h2>Referral failed</h2>
+      <p>${escapeHtml(error.message || "Referral code could not be applied.")}</p>
+      <button class="checkout-btn" type="button" onclick="showWalletReferral()">Try again</button>
+    `);
+  }
+}
+
 function detectCustomerLocation() {
   if (!navigator.geolocation) {
     alert("Location detection is not supported");
@@ -990,7 +1150,10 @@ function detectCustomerLocation() {
       <p>Your location was captured for delivery checkout.</p>
       <a href="${state.customerLocation.mapsLink}" target="_blank">Open on map</a>
     `);
-  }, () => alert("Location permission denied"));
+  }, () => openModal(`
+    <h2>Location not enabled</h2>
+    <p>Location permission was denied. You can still use saved addresses during delivery checkout.</p>
+  `));
 }
 
 async function enableNotifications() {
@@ -1112,6 +1275,7 @@ search.addEventListener("input", () => {
   if (state.selectedRestaurant) {
     renderFoods();
   } else {
+    state.restaurantVisibleCount = 6;
     renderRestaurants();
   }
 });

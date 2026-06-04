@@ -7,49 +7,119 @@
   <link rel="stylesheet" href="/style.css">
   <style>
     body { padding: 18px; }
-    .dashboard { margin: auto; max-width: 980px; }
-    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-    .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); padding: 16px; }
-    .bar { align-items: end; display: flex; gap: 8px; height: 140px; }
-    .bar span { background: #d39b1a; border-radius: 8px 8px 0 0; flex: 1; min-height: 6px; }
+    .dashboard { margin: auto; max-width: 1120px; }
+    .topbar { align-items: center; display: flex; gap: 12px; justify-content: space-between; margin-bottom: 14px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+    .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); margin-bottom: 14px; padding: 16px; }
+    .bar { align-items: end; display: flex; gap: 8px; height: 160px; padding-top: 12px; }
+    .bar span { background: linear-gradient(#d39b1a, #ad7608); border-radius: 8px 8px 0 0; flex: 1; min-height: 6px; position: relative; }
+    .bar small { display: block; font-size: 10px; margin-top: 6px; text-align: center; transform: rotate(-20deg); }
+    .columns { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
     table { border-collapse: collapse; width: 100%; }
     td, th { border-bottom: 1px solid #eee; padding: 10px; text-align: left; }
     select, input, button { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
+    .status-card { border: 1px solid #eee; border-radius: 14px; margin-top: 10px; padding: 12px; }
+    .status-card select { margin-top: 10px; width: 100%; }
   </style>
 </head>
 <body>
   <main class="dashboard">
-    <h1>Restaurant Dashboard</h1>
-    <p class="muted">Login username is used to load analytics.</p>
+    <div class="topbar">
+      <div>
+        <h1>Restaurant Dashboard</h1>
+        <p class="muted">Phase 7 analytics, sales, top foods, and live order status.</p>
+      </div>
+      <a href="/">Back to Foodza</a>
+    </div>
+
     <div class="panel">
       <input id="username" placeholder="Restaurant username" value="hotelbalajiinn">
       <button onclick="loadDashboard()">Load dashboard</button>
     </div>
+
     <section id="stats" class="grid"></section>
+
     <section class="panel">
       <h2>Revenue chart</h2>
       <div id="chart" class="bar"></div>
     </section>
-    <section class="panel">
-      <h2>Top selling foods</h2>
-      <div id="topFoods"></div>
+
+    <section class="columns">
+      <div class="panel">
+        <h2>Top selling foods</h2>
+        <div id="topFoods"></div>
+      </div>
+      <div class="panel">
+        <h2>Completed orders</h2>
+        <div id="completedOrders"></div>
+      </div>
     </section>
+
     <section class="panel">
-      <h2>Live orders</h2>
-      <div id="orders"></div>
+      <h2>Delivery staff</h2>
+      <p class="muted">Create unique delivery usernames and passwords for this restaurant.</p>
+      <div class="grid">
+        <input id="deliveryName" placeholder="Delivery person name">
+        <input id="deliveryMobile" placeholder="Mobile number">
+        <input id="deliveryUsername" placeholder="Unique username">
+        <input id="deliveryPassword" type="password" placeholder="Password">
+      </div>
+      <button onclick="createDeliveryMan()">Create delivery login</button>
+      <div id="deliveryMen"></div>
+    </section>
+
+    <section class="columns">
+      <div class="panel">
+        <h2>Pending orders</h2>
+        <div id="pendingOrders"></div>
+      </div>
+      <div class="panel">
+        <h2>Accepted orders</h2>
+        <div id="acceptedOrders"></div>
+      </div>
     </section>
   </main>
+
   <script>
+    const statuses = ["received", "preparing", "packed", "out_for_delivery", "delivered"];
     async function json(url, options) {
       const res = await fetch(url, options);
-      return res.json();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Request failed");
+      return data;
     }
     function rupee(value) {
       return "₹" + Math.round(Number(value) || 0);
     }
+    function statusLabel(status) {
+      return String(status || "").replaceAll("_", " ");
+    }
+    function orderCard(order) {
+      const deliveryMen = window.currentDeliveryMen || [];
+      const deliveryOptions = deliveryMen.map(person =>
+        `<option value="${person.id}" ${person.id === order.deliveryManId ? "selected" : ""}>${person.name}</option>`
+      ).join("");
+      return `
+        <div class="status-card">
+          <strong>${order.orderId}</strong>
+          <p>${order.name || "Customer"} · ${statusLabel(order.status)}</p>
+          <small>${(order.items || []).map(item => `${item.name} x${item.quantity}`).join(", ")}</small>
+          ${order.deliveryManName ? `<p><b>Delivery:</b> ${order.deliveryManName}</p>` : ""}
+          <select onchange="updateStatus('${order.orderId}', this.value)">
+            ${statuses.map(status => `<option value="${status}" ${status === order.status ? "selected" : ""}>${statusLabel(status)}</option>`).join("")}
+          </select>
+          <select onchange="assignDelivery('${order.orderId}', this.value)">
+            <option value="">Assign delivery staff</option>
+            ${deliveryOptions}
+          </select>
+        </div>
+      `;
+    }
     async function loadDashboard() {
       const username = document.getElementById("username").value.trim();
-      const data = await json("/restaurant-dashboard-data/" + username);
+      const data = await json("/restaurant-dashboard-data/" + encodeURIComponent(username));
+      window.currentRestaurantUsername = username;
+      window.currentDeliveryMen = data.deliveryMen || [];
       const a = data.analytics;
       document.getElementById("stats").innerHTML = [
         ["Daily sales", rupee(a.dailySales)],
@@ -61,25 +131,26 @@
         ["Accepted", a.acceptedOrders],
         ["Completed", a.completedOrders]
       ].map(([label, value]) => `<div class="panel"><p>${label}</p><h2>${value}</h2></div>`).join("");
+
       const max = Math.max(...a.revenueChart.map(item => item.revenue), 1);
       document.getElementById("chart").innerHTML = a.revenueChart
-        .map(item => `<span title="${item.date}: ${rupee(item.revenue)}" style="height:${Math.max(6, item.revenue / max * 130)}px"></span>`)
+        .map(item => `<span title="${item.date}: ${rupee(item.revenue)}" style="height:${Math.max(6, item.revenue / max * 145)}px"><small>${item.date}</small></span>`)
         .join("");
+
       document.getElementById("topFoods").innerHTML = a.topSellingFoods.length
         ? `<table><tr><th>Food</th><th>Qty</th><th>Revenue</th></tr>${a.topSellingFoods.map(food => `<tr><td>${food.name}</td><td>${food.quantity}</td><td>${rupee(food.revenue)}</td></tr>`).join("")}</table>`
         : "<p>No sales yet.</p>";
-      const activeOrders = [...data.pendingOrders, ...data.acceptedOrders];
-      document.getElementById("orders").innerHTML = activeOrders.length
-        ? activeOrders.map(order => `
-          <div class="history-card">
-            <strong>${order.orderId}</strong>
-            <p>${order.name || "Customer"} · ${order.status}</p>
-            <select onchange="updateStatus('${order.orderId}', this.value)">
-              ${["received", "preparing", "packed", "out_for_delivery", "delivered"].map(status => `<option value="${status}" ${status === order.status ? "selected" : ""}>${status}</option>`).join("")}
-            </select>
-          </div>
-        `).join("")
-        : "<p>No active orders.</p>";
+
+      document.getElementById("pendingOrders").innerHTML = data.pendingOrders.length
+        ? data.pendingOrders.map(orderCard).join("")
+        : "<p>No pending orders.</p>";
+      document.getElementById("acceptedOrders").innerHTML = data.acceptedOrders.length
+        ? data.acceptedOrders.map(orderCard).join("")
+        : "<p>No accepted orders.</p>";
+      document.getElementById("completedOrders").innerHTML = data.completedOrders.length
+        ? data.completedOrders.slice(0, 8).map(order => `<div class="status-card"><strong>${order.orderId}</strong><p>${order.name || "Customer"} · delivered</p></div>`).join("")
+        : "<p>No completed orders.</p>";
+      renderDeliveryMen();
     }
     async function updateStatus(orderId, status) {
       await json("/order-status/" + orderId, {
@@ -87,9 +158,55 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
       });
-      loadDashboard();
+      await loadDashboard();
     }
-    loadDashboard();
+    function renderDeliveryMen() {
+      const deliveryMen = window.currentDeliveryMen || [];
+      document.getElementById("deliveryMen").innerHTML = deliveryMen.length
+        ? `<table><tr><th>Name</th><th>Username</th><th>Mobile</th><th>Status</th><th>Action</th></tr>${deliveryMen.map(person => `
+          <tr>
+            <td>${person.name}</td>
+            <td>${person.username}</td>
+            <td>${person.mobile}</td>
+            <td>${person.active ? "Active" : "Inactive"}</td>
+            <td><button onclick="toggleDeliveryMan(${person.id})">${person.active ? "Disable" : "Enable"}</button></td>
+          </tr>
+        `).join("")}</table>`
+        : "<p>No delivery staff registered.</p>";
+    }
+    async function createDeliveryMan() {
+      const username = window.currentRestaurantUsername || document.getElementById("username").value.trim();
+      await json("/restaurant-delivery/" + encodeURIComponent(username), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: document.getElementById("deliveryName").value,
+          mobile: document.getElementById("deliveryMobile").value,
+          username: document.getElementById("deliveryUsername").value,
+          password: document.getElementById("deliveryPassword").value
+        })
+      });
+      document.getElementById("deliveryName").value = "";
+      document.getElementById("deliveryMobile").value = "";
+      document.getElementById("deliveryUsername").value = "";
+      document.getElementById("deliveryPassword").value = "";
+      await loadDashboard();
+    }
+    async function toggleDeliveryMan(id) {
+      const username = window.currentRestaurantUsername || document.getElementById("username").value.trim();
+      await json(`/restaurant-delivery/${encodeURIComponent(username)}/${id}/toggle`, { method: "POST" });
+      await loadDashboard();
+    }
+    async function assignDelivery(orderId, deliveryManId) {
+      if (!deliveryManId) return;
+      await json("/assign-delivery/" + orderId, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deliveryManId })
+      });
+      await loadDashboard();
+    }
+    loadDashboard().catch(error => alert(error.message));
   </script>
 </body>
 </html>

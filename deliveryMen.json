@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1780585338692,
+    "name": "Test Rider",
+    "mobile": "9000000000",
+    "username": "rider1780585338058",
+    "password": "scrypt$4b61d43a4111857bec21069b28819aa7$43f1895401576659becab34c94e2757e58a1be1fa3b5c7132895028dfb1a93587757bb6954b97d8cf6c8270522dcf1ebfad70201da2278eaa4268706ba2748fe",
+    "restaurantUsername": "hotelbalajiinn",
+    "restaurantName": "Hotel Balaji Inn",
+    "active": false,
+    "createdAt": 1780585339093
+  },
+  {
+    "id": 1780586041776,
+    "name": "Pranav",
+    "mobile": "9880520082",
+    "username": "pranav",
+    "password": "scrypt$d20d1d08d56df93126527b0c0893051c$2a6370efb7307391db746d5174bd7a08f06ffbde9ac196fa8fb5503e59b2e7a2129ed64b6b3d6637bed759036c19c22aa3a6d578abec17b83042ec9c918e0eab",
+    "restaurantUsername": "hotelbalajiinn",
+    "restaurantName": "Hotel Balaji Inn",
+    "active": true,
+    "createdAt": 1780586041912
+  }
+]

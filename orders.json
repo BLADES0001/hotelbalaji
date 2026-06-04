@@ -3,8 +3,8 @@
     "id": 1779809333610,
     "name": "Pranavdg",
     "mobile": "9880520082",
-    "orderType": "dinein",
-    "table": "77",
+    "orderType": "pickup",
+    "table": null,
     "location": null,
     "items": [
       {
@@ -19,137 +19,5 @@
     "time": "5/26/2026, 8:58:53 PM",
     "done": false,
     "createdAt": 1779809333610
-  },
-  {
-    "id": 1780325481848,
-    "name": "Pranavdg",
-    "mobile": "9880520082",
-    "orderType": "delivery",
-    "table": null,
-    "location": {
-      "latitude": 12.8815,
-      "longitude": 77.621,
-      "mapsLink": "https://www.google.com/maps?q=12.8815,77.621"
-    },
-    "items": [
-      {
-        "id": 1780197108308,
-        "name": "Tea",
-        "price": 30,
-        "category": "Breakfast",
-        "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkXhe9_Ml2shXunpKxftYmfq4r6WSfU2ovJQ&s",
-        "restaurantUsername": "hotelbalajiinn",
-        "quantity": 2,
-        "custom": ""
-      }
-    ],
-    "restaurantUsername": "hotelbalajiinn",
-    "time": "6/1/2026, 8:21:21 PM",
-    "done": false,
-    "createdAt": 1780325481848
-  },
-  {
-    "id": 1780369976093,
-    "orderId": "FZ1780369976093",
-    "status": "received",
-    "statusHistory": [
-      {
-        "status": "received",
-        "time": 1780369976093
-      }
-    ],
-    "name": "Foodza Tester",
-    "mobile": "9999999999",
-    "orderType": "dinein",
-    "table": "12",
-    "address": null,
-    "instructions": "",
-    "paymentMethod": "cod",
-    "location": null,
-    "items": [
-      {
-        "description": "Fresh hot tea brewed strong and served warm.",
-        "rating": 4.6,
-        "foodType": "veg",
-        "bestseller": true,
-        "recommended": true,
-        "popular": true,
-        "gallery": [
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkXhe9_Ml2shXunpKxftYmfq4r6WSfU2ovJQ&s"
-        ],
-        "id": 1780197108308,
-        "name": "Tea",
-        "price": 30,
-        "category": "Breakfast",
-        "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkXhe9_Ml2shXunpKxftYmfq4r6WSfU2ovJQ&s",
-        "restaurantUsername": "hotelbalajiinn",
-        "quantity": 2,
-        "custom": ""
-      }
-    ],
-    "restaurantUsername": "hotelbalajiinn",
-    "pricing": {
-      "subtotal": 60,
-      "discount": 6,
-      "deliveryFee": 0,
-      "gst": 2.7,
-      "grandTotal": 56.7
-    },
-    "time": "6/2/2026, 8:42:56 AM",
-    "done": false,
-    "estimatedDeliveryTime": 35,
-    "createdAt": 1780369976093
-  },
-  {
-    "id": 1780371897021,
-    "orderId": "FZ1780371897021",
-    "status": "received",
-    "statusHistory": [
-      {
-        "status": "received",
-        "time": 1780371897021
-      }
-    ],
-    "name": "Foodza Tester",
-    "mobile": "9999999999",
-    "orderType": "pickup",
-    "table": null,
-    "address": null,
-    "instructions": "",
-    "paymentMethod": "cod",
-    "location": null,
-    "items": [
-      {
-        "description": "Fresh hot tea brewed strong and served warm.",
-        "rating": 4.6,
-        "foodType": "veg",
-        "bestseller": true,
-        "recommended": true,
-        "popular": true,
-        "gallery": [
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkXhe9_Ml2shXunpKxftYmfq4r6WSfU2ovJQ&s"
-        ],
-        "id": 1780197108308,
-        "name": "Tea",
-        "price": 30,
-        "category": "Breakfast",
-        "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkXhe9_Ml2shXunpKxftYmfq4r6WSfU2ovJQ&s",
-        "restaurantUsername": "hotelbalajiinn",
-        "quantity": 1,
-        "custom": ""
-      }
-    ],
-    "restaurantUsername": "hotelbalajiinn",
-    "pricing": {
-      "subtotal": 30,
-      "discount": 0,
-      "deliveryFee": 0,
-      "gst": 1.5,
-      "grandTotal": 31.5
-    },
-    "time": "6/2/2026, 9:14:56 AM",
-    "done": false,
-    "estimatedDeliveryTime": 35,
-    "createdAt": 1780371897021
   }
 ]

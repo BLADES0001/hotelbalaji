@@ -1,4 +1,4 @@
-const CACHE_NAME = "foodza-shell-v7";
+const CACHE_NAME = "foodza-shell-v11";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -34,8 +34,11 @@ self.addEventListener("fetch", event => {
       url.pathname.startsWith("/customer") ||
       url.pathname.startsWith("/order-status/") ||
       url.pathname.startsWith("/admin") ||
+      url.pathname.startsWith("/delivery") ||
+      url.pathname.startsWith("/restaurant-delivery") ||
       url.pathname.startsWith("/restaurant-analytics/") ||
       url.pathname.startsWith("/recommendations/") ||
+      url.pathname === "/trending-foods" ||
       url.pathname === "/coupons") {
     event.respondWith(fetch(event.request));
     return;

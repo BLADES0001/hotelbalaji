@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#d89c13">
+  <meta name="theme-color" content="#f0566e">
   <title>Foodza</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="manifest" href="/manifest.json">
@@ -35,19 +35,15 @@
         <h2>Foodza</h2>
         <button type="button" onclick="toggleSideMenu()" aria-label="Close menu">&times;</button>
       </div>
-      <button class="side-link" type="button" onclick="showOrders(); closeSideMenu()">My orders</button>
       <button class="side-link" type="button" onclick="openProfilePage(); closeSideMenu()">Profile & addresses</button>
       <button class="side-link" type="button" onclick="showRecommendations(); closeSideMenu()">AI recommendations</button>
-      <button class="side-link" type="button" onclick="showTrendingFoods(); closeSideMenu()">Trending foods</button>
       <button class="side-link" type="button" onclick="showFavouriteRestaurants(); closeSideMenu()">Favourite restaurants</button>
       <button class="side-link" type="button" onclick="showFavouriteFoods(); closeSideMenu()">Favourite foods</button>
       <button class="side-link" type="button" onclick="showWalletReferral(); closeSideMenu()">Wallet & referral</button>
       <button class="side-link" type="button" onclick="detectCustomerLocation(); closeSideMenu()">Detect location</button>
       <button class="side-link" type="button" onclick="enableNotifications(); closeSideMenu()">Enable notifications</button>
       <button class="side-link" type="button" onclick="toggleDarkMode(); closeSideMenu()">Dark mode</button>
-      <button class="side-link" type="button" onclick="showOrderHistory(); closeSideMenu()">Order history</button>
       <a class="side-link side-anchor" href="/restaurant-dashboard.html">Restaurant dashboard</a>
-      <a class="side-link side-anchor" href="/platform-admin.html">Platform admin</a>
       <section class="contact-card">
         <h3>Contact us</h3>
         <p>+91 9663729867</p>
@@ -140,6 +136,25 @@
   <button class="cart-toggle" type="button" onclick="toggleCart()">
     Cart (<span id="cart-count">0</span>)
   </button>
+
+  <nav class="bottom-nav" aria-label="Foodza navigation">
+    <button type="button" class="active" onclick="showRestaurants()">
+      <span>⌂</span>
+      <small>Order</small>
+    </button>
+    <button type="button" onclick="showTrendingFoods()">
+      <span>⌁</span>
+      <small>Trending</small>
+    </button>
+    <button type="button" onclick="showFavouriteRestaurants()">
+      <span>♡</span>
+      <small>Favourites</small>
+    </button>
+    <button type="button" onclick="showOrders()">
+      <span>▣</span>
+      <small>Orders</small>
+    </button>
+  </nav>
 
   <section class="cart" id="cartBox" aria-label="Shopping cart">
     <div class="cart-top">

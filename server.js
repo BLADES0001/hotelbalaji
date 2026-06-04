@@ -66,7 +66,10 @@ app.use((req, res, next) => {
       req.path === "/restaurants" || req.path.startsWith("/customer-orders/") ||
       req.path.startsWith("/customer") || req.path.startsWith("/order-status/") ||
       req.path.startsWith("/admin") || req.path.startsWith("/restaurant-analytics/") ||
-      req.path === "/coupons" || req.path.startsWith("/recommendations/")) {
+      req.path === "/coupons" || req.path === "/trending-foods" ||
+      req.path === "/orders" || req.path === "/owner" ||
+      req.path.startsWith("/delivery") || req.path.startsWith("/restaurant-delivery") ||
+      req.path.startsWith("/recommendations/")) {
     res.set("Cache-Control", "no-store");
   }
   next();
@@ -203,6 +206,7 @@ res.send("Updated");
 let orders = [];
 let completedOrders = [];
 let customers = readJsonFile("customers.json", []);
+let deliveryMen = readJsonFile("deliveryMen.json", []);
 let otpRequests = readJsonFile("otpRequests.json", []);
 let activityLogs = readJsonFile("activityLogs.json", []);
 let coupons = readJsonFile("coupons.json", [
@@ -397,6 +401,8 @@ app.post("/approve-restaurant/:id", (req, res) => {
   if(restaurant){
 
     restaurant.approved = true;
+    restaurant.suspended = false;
+    restaurant.isOpen = true;
 
     restaurant.subscriptionStatus =
     "active";
@@ -409,10 +415,13 @@ app.post("/approve-restaurant/:id", (req, res) => {
         2
       )
     );
+    logActivity("restaurant_approved", `${restaurant.hotelName} approved`, {
+      restaurantId:id
+    });
 
   }
 
-  res.send("Approved");
+  res.json(restaurant || { message:"Restaurant not found" });
 
 });
 
@@ -427,6 +436,27 @@ if (fs.existsSync("completedOrders.json")) {
     fs.readFileSync("completedOrders.json")
   );
 }
+
+function removeLegacyDineIn(order) {
+  if (order.orderType === "dinein") order.orderType = "pickup";
+  if ("table" in order) order.table = null;
+  if (order.done || order.completedAt) {
+    order.status = "delivered";
+    order.statusHistory = Array.isArray(order.statusHistory) ? order.statusHistory : [];
+    if (!order.statusHistory.some(item => item.status === "delivered")) {
+      order.statusHistory.push({
+        status:"delivered",
+        time:order.completedAt || Date.now()
+      });
+    }
+  }
+  return order;
+}
+
+orders = orders.map(removeLegacyDineIn);
+completedOrders = completedOrders.map(removeLegacyDineIn);
+writeJsonFile("orders.json", orders);
+writeJsonFile("completedOrders.json", completedOrders);
 
 // receive order
 app.post("/order", (req, res) => {
@@ -468,6 +498,24 @@ if (!String(req.body.mobile || "").trim()) {
   });
 }
 
+const customer = customers.find(item => item.mobile === String(req.body.mobile || "").trim());
+const grandTotal = Number(req.body.pricing?.grandTotal || 0);
+
+if (req.body.paymentMethod === "wallet") {
+  if (!customer) {
+    return res.status(400).json({
+      message:"Customer account is required for wallet payment"
+    });
+  }
+  if (Number(customer.wallet || 0) < grandTotal) {
+    return res.status(400).json({
+      message:"Insufficient wallet balance"
+    });
+  }
+  customer.wallet = Number(customer.wallet || 0) - grandTotal;
+  writeJsonFile("customers.json", customers);
+}
+
 const order = {
 
   id: Date.now(),
@@ -506,6 +554,11 @@ const order = {
   );
 
   console.log("New Order:", order);
+  logActivity("order_created", `Order ${order.orderId} placed`, {
+    mobile:req.body.mobile,
+    restaurantUsername:req.body.restaurantUsername,
+    grandTotal
+  });
 
   res.status(201).json(order);
 
@@ -531,6 +584,12 @@ const completed = orders[index];
   completed.completedAt = Date.now();
 
   completed.done = true;
+  completed.status = "delivered";
+  completed.statusHistory = Array.isArray(completed.statusHistory) ? completed.statusHistory : [];
+  completed.statusHistory.push({
+    status:"delivered",
+    time:completed.completedAt
+  });
 
   completedOrders.push(completed);
 
@@ -911,6 +970,80 @@ app.get("/coupons", (req, res) => {
   res.json(coupons.filter(coupon => coupon.active));
 });
 
+app.get("/trending-foods", (req, res) => {
+  const sales = {};
+  allOrders().forEach(order => {
+    (order.items || []).forEach(item => {
+      const id = Number(item.id);
+      if (!sales[id]) {
+        sales[id] = {
+          id,
+          name:item.name,
+          category:item.category,
+          price:Number(item.price || 0),
+          restaurantUsername:item.restaurantUsername || order.restaurantUsername,
+          quantity:0,
+          revenue:0
+        };
+      }
+      sales[id].quantity += Number(item.quantity || 0);
+      sales[id].revenue += Number(item.price || 0) * Number(item.quantity || 0);
+    });
+  });
+
+  const soldFoods = Object.values(sales).sort((a, b) => b.quantity - a.quantity);
+  const fallbackFoods = menu
+    .filter(item => item.popular || item.bestseller || item.recommended)
+    .map(item => ({
+      ...item,
+      quantity:0,
+      revenue:0
+    }));
+
+  res.json((soldFoods.length ? soldFoods : fallbackFoods).slice(0, 12));
+});
+
+app.post("/customer/:mobile/wallet/topup", (req, res) => {
+  const customer = customers.find(item => item.mobile === req.params.mobile);
+  const amount = Number(req.body.amount || 0);
+
+  if (!customer) return res.status(404).json({ message:"Customer not found" });
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ message:"Enter a valid amount" });
+  }
+
+  customer.wallet = Number(customer.wallet || 0) + amount;
+  writeJsonFile("customers.json", customers);
+  logActivity("wallet_topup", `${customer.name} topped up wallet`, {
+    mobile:customer.mobile,
+    amount
+  });
+  res.json(publicCustomer(customer));
+});
+
+app.post("/customer/:mobile/referral/apply", (req, res) => {
+  const customer = customers.find(item => item.mobile === req.params.mobile);
+  const code = String(req.body.code || "").trim().toUpperCase();
+  const referrer = customers.find(item =>
+    String(item.referralCode || "").toUpperCase() === code &&
+    item.mobile !== req.params.mobile
+  );
+
+  if (!customer) return res.status(404).json({ message:"Customer not found" });
+  if (!referrer) return res.status(400).json({ message:"Invalid referral code" });
+  if (customer.referredBy) return res.status(400).json({ message:"Referral already applied" });
+
+  customer.referredBy = referrer.referralCode;
+  customer.wallet = Number(customer.wallet || 0) + 25;
+  referrer.wallet = Number(referrer.wallet || 0) + 25;
+  writeJsonFile("customers.json", customers);
+  logActivity("referral_applied", `${customer.name} used referral ${code}`, {
+    customer:customer.mobile,
+    referrer:referrer.mobile
+  });
+  res.json(publicCustomer(customer));
+});
+
 // ================= ANALYTICS / MANAGEMENT APIS =================
 
 function allOrders() {
@@ -932,6 +1065,7 @@ function startOfDay(time) {
 
 function analyticsForRestaurant(username) {
   const restaurantOrders = allOrders().filter(order => order.restaurantUsername === username);
+  const activeRestaurantOrders = orders.filter(order => order.restaurantUsername === username);
   const now = Date.now();
   const day = 24 * 60 * 60 * 1000;
   const dailyOrders = restaurantOrders.filter(order => order.createdAt >= startOfDay(now));
@@ -959,8 +1093,8 @@ function analyticsForRestaurant(username) {
     dailySales: dailyOrders.reduce((sum, order) => sum + orderTotal(order), 0),
     weeklySales: weeklyOrders.reduce((sum, order) => sum + orderTotal(order), 0),
     monthlySales: monthlyOrders.reduce((sum, order) => sum + orderTotal(order), 0),
-    pendingOrders: restaurantOrders.filter(order => order.status === "received").length,
-    acceptedOrders: restaurantOrders.filter(order => ["preparing", "packed", "out_for_delivery"].includes(order.status)).length,
+    pendingOrders: activeRestaurantOrders.filter(order => order.status === "received").length,
+    acceptedOrders: activeRestaurantOrders.filter(order => ["preparing", "packed", "out_for_delivery"].includes(order.status)).length,
     completedOrders: restaurantOrders.filter(order => order.done || order.status === "delivered").length,
     topSellingFoods: Object.values(foodSales).sort((a, b) => b.quantity - a.quantity).slice(0, 10),
     revenueChart: Array.from({ length: 7 }).map((_, index) => {
@@ -986,20 +1120,180 @@ app.get("/restaurant-dashboard-data/:username", (req, res) => {
     analytics: analyticsForRestaurant(username),
     pendingOrders: orders.filter(order => order.restaurantUsername === username && order.status === "received"),
     acceptedOrders: orders.filter(order => order.restaurantUsername === username && ["preparing", "packed", "out_for_delivery"].includes(order.status)),
-    completedOrders: completedOrders.filter(order => order.restaurantUsername === username)
+    completedOrders: completedOrders.filter(order => order.restaurantUsername === username),
+    deliveryMen: deliveryMen
+      .filter(person => person.restaurantUsername === username)
+      .map(({ password, ...person }) => person)
   });
 });
 
+app.get("/restaurant-delivery/:username", (req, res) => {
+  res.json(deliveryMen
+    .filter(person => person.restaurantUsername === req.params.username)
+    .map(({ password, ...person }) => person));
+});
+
+app.post("/restaurant-delivery/:username", (req, res) => {
+  const restaurant = restaurants.find(item => item.username === req.params.username);
+  const name = String(req.body.name || "").trim();
+  const mobile = String(req.body.mobile || "").trim();
+  const username = String(req.body.username || "").trim().toLowerCase();
+  const password = String(req.body.password || "").trim();
+
+  if (!restaurant) return res.status(404).json({ message:"Restaurant not found" });
+  if (!name || !mobile || !username || password.length < 4) {
+    return res.status(400).json({ message:"Name, mobile, unique username, and 4+ character password are required" });
+  }
+  if (deliveryMen.some(person => person.username === username)) {
+    return res.status(400).json({ message:"Delivery username already exists" });
+  }
+
+  const person = {
+    id: Date.now(),
+    name,
+    mobile,
+    username,
+    password: hashPassword(password),
+    restaurantUsername: restaurant.username,
+    restaurantName: restaurant.hotelName,
+    active: true,
+    createdAt: Date.now()
+  };
+
+  deliveryMen.push(person);
+  writeJsonFile("deliveryMen.json", deliveryMen);
+  logActivity("delivery_created", `${name} added as delivery staff`, {
+    restaurantUsername: restaurant.username,
+    username
+  });
+  const { password: _password, ...safePerson } = person;
+  res.status(201).json(safePerson);
+});
+
+app.post("/restaurant-delivery/:username/:id/toggle", (req, res) => {
+  const person = deliveryMen.find(item =>
+    item.restaurantUsername === req.params.username &&
+    item.id === Number(req.params.id)
+  );
+  if (!person) return res.status(404).json({ message:"Delivery staff not found" });
+  person.active = !person.active;
+  writeJsonFile("deliveryMen.json", deliveryMen);
+  logActivity("delivery_toggled", `${person.name} active status changed`, {
+    username:person.username,
+    active:person.active
+  });
+  const { password, ...safePerson } = person;
+  res.json(safePerson);
+});
+
+app.post("/assign-delivery/:orderId", (req, res) => {
+  const order = orders.find(item => item.orderId === req.params.orderId);
+  if (!order) return res.status(404).json({ message:"Order not found" });
+
+  const person = deliveryMen.find(item =>
+    item.id === Number(req.body.deliveryManId) &&
+    item.restaurantUsername === order.restaurantUsername &&
+    item.active
+  );
+  if (!person) return res.status(400).json({ message:"Active delivery staff not found for this restaurant" });
+
+  order.deliveryManId = person.id;
+  order.deliveryManUsername = person.username;
+  order.deliveryManName = person.name;
+  order.status = order.status === "received" ? "preparing" : order.status;
+  order.statusHistory = Array.isArray(order.statusHistory) ? order.statusHistory : [];
+  order.statusHistory.push({
+    status:"delivery_assigned",
+    time:Date.now(),
+    deliveryManUsername:person.username
+  });
+  writeJsonFile("orders.json", orders);
+  logActivity("delivery_assigned", `${person.name} assigned to ${order.orderId}`, {
+    orderId:order.orderId,
+    deliveryManUsername:person.username
+  });
+  res.json(order);
+});
+
+app.post("/delivery-login", (req, res) => {
+  const username = String(req.body.username || "").trim().toLowerCase();
+  const person = deliveryMen.find(item => item.username === username);
+  if (!person || !person.active || !verifyPassword(req.body.password, person.password)) {
+    return res.status(401).json({
+      success:false,
+      message:"Invalid delivery username or password"
+    });
+  }
+  const { password, ...safePerson } = person;
+  res.json({
+    success:true,
+    deliveryMan:safePerson
+  });
+});
+
+app.get("/delivery-orders/:username", (req, res) => {
+  const person = deliveryMen.find(item => item.username === req.params.username);
+  if (!person) return res.status(404).json({ message:"Delivery staff not found" });
+  res.json(orders.filter(order =>
+    order.deliveryManUsername === person.username ||
+    (
+      !order.deliveryManUsername &&
+      order.restaurantUsername === person.restaurantUsername &&
+      ["packed", "out_for_delivery"].includes(order.status)
+    )
+  ));
+});
+
 app.get("/admin-stats", (req, res) => {
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  const all = allOrders();
+  const dailyOrders = all.filter(order => order.createdAt >= startOfDay(now));
+  const weeklyOrders = all.filter(order => order.createdAt >= now - 7 * day);
+  const monthlyOrders = all.filter(order => order.createdAt >= now - 30 * day);
+
   res.json({
     restaurants: restaurants.length,
     approvedRestaurants: restaurants.filter(restaurant => restaurant.approved).length,
     suspendedRestaurants: restaurants.filter(restaurant => restaurant.suspended).length,
     users: customers.length,
+    deliveryMen: deliveryMen.length,
     activeOrders: orders.length,
     completedOrders: completedOrders.length,
-    revenue: allOrders().reduce((sum, order) => sum + orderTotal(order), 0),
+    revenue: all.reduce((sum, order) => sum + orderTotal(order), 0),
+    dailyRevenue: dailyOrders.reduce((sum, order) => sum + orderTotal(order), 0),
+    weeklyRevenue: weeklyOrders.reduce((sum, order) => sum + orderTotal(order), 0),
+    monthlyRevenue: monthlyOrders.reduce((sum, order) => sum + orderTotal(order), 0),
     activityLogs: activityLogs.slice(-20).reverse()
+  });
+});
+
+app.get("/admin-revenue-report", (req, res) => {
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  const all = allOrders();
+  const byRestaurant = restaurants.map(restaurant => {
+    const restaurantOrders = all.filter(order => order.restaurantUsername === restaurant.username);
+    return {
+      username:restaurant.username,
+      hotelName:restaurant.hotelName,
+      orders:restaurantOrders.length,
+      revenue:restaurantOrders.reduce((sum, order) => sum + orderTotal(order), 0)
+    };
+  }).sort((a, b) => b.revenue - a.revenue);
+
+  res.json({
+    daily: all
+      .filter(order => order.createdAt >= startOfDay(now))
+      .reduce((sum, order) => sum + orderTotal(order), 0),
+    weekly: all
+      .filter(order => order.createdAt >= now - 7 * day)
+      .reduce((sum, order) => sum + orderTotal(order), 0),
+    monthly: all
+      .filter(order => order.createdAt >= now - 30 * day)
+      .reduce((sum, order) => sum + orderTotal(order), 0),
+    total: all.reduce((sum, order) => sum + orderTotal(order), 0),
+    byRestaurant
   });
 });
 
@@ -1009,6 +1303,10 @@ app.get("/admin-orders", (req, res) => {
 
 app.get("/admin-users", (req, res) => {
   res.json(customers.map(publicCustomer));
+});
+
+app.get("/admin-delivery", (req, res) => {
+  res.json(deliveryMen.map(({ password, ...person }) => person));
 });
 
 app.post("/reject-restaurant/:id", (req, res) => {
@@ -1042,6 +1340,9 @@ app.get("/admin-search", (req, res) => {
     users: customers
       .map(publicCustomer)
       .filter(customer => `${customer.name} ${customer.mobile}`.toLowerCase().includes(query)),
+    deliveryMen: deliveryMen
+      .map(({ password, ...person }) => person)
+      .filter(person => `${person.name} ${person.mobile} ${person.username} ${person.restaurantUsername}`.toLowerCase().includes(query)),
     orders: allOrders()
       .filter(order => `${order.orderId} ${order.name} ${order.mobile}`.toLowerCase().includes(query))
   });
@@ -1553,6 +1854,13 @@ startAdmin();
 
 });
 
+// ================= UPGRADED ORDERS PAGE =================
+
+app.get("/orders", (req, res, next) => {
+  if (req.query.legacy === "1") return next();
+  res.sendFile(path.join(__dirname, "public", "orders.html"));
+});
+
 // ================= ORDERS PAGE =================
 
 app.get("/orders", (req, res) => {
@@ -1932,6 +2240,13 @@ location.reload();
 
 res.send(html);
 
+});
+
+// ================= UPGRADED OWNER PANEL =================
+
+app.get("/owner", (req, res, next) => {
+  if (req.query.legacy === "1") return next();
+  res.sendFile(path.join(__dirname, "public", "owner.html"));
 });
 
 // ================= OWNER PANEL =================

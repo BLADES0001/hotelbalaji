@@ -7,76 +7,165 @@
   <link rel="stylesheet" href="/style.css">
   <style>
     body { padding: 18px; }
-    .admin { margin: auto; max-width: 1100px; }
-    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-    .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); padding: 16px; }
+    .admin { margin: auto; max-width: 1200px; }
+    .topbar { align-items: center; display: flex; gap: 12px; justify-content: space-between; margin-bottom: 14px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+    .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); margin-bottom: 14px; padding: 16px; }
+    .columns { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
     input, button { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
+    button { background: #fff7e8; cursor: pointer; font-weight: 700; }
     table { border-collapse: collapse; width: 100%; }
-    td, th { border-bottom: 1px solid #eee; padding: 9px; text-align: left; }
+    td, th { border-bottom: 1px solid #eee; padding: 9px; text-align: left; vertical-align: top; }
+    .scroll-table { overflow-x: auto; }
+    .pill { border-radius: 999px; display: inline-block; font-size: 12px; font-weight: 800; padding: 4px 8px; }
+    .ok { background: #e6f6e2; color: #287120; }
+    .bad { background: #fbe6e3; color: #a13a32; }
+    .warn { background: #fff1cf; color: #a16400; }
   </style>
 </head>
 <body>
   <main class="admin">
-    <h1>Foodza Platform Admin</h1>
+    <div class="topbar">
+      <div>
+        <h1>Foodza Platform Admin</h1>
+        <p class="muted">Phase 9 admin controls, reports, search, users, restaurants, and activity logs.</p>
+      </div>
+      <div class="row">
+        <a href="/owner">Owner panel</a>
+        <a href="/orders">Orders page</a>
+        <a href="/delivery.html">Delivery site</a>
+        <a href="/">Back to Foodza</a>
+      </div>
+    </div>
+
     <section id="stats" class="grid"></section>
+
     <section class="panel">
-      <h2>Search</h2>
-      <input id="q" placeholder="Search users, restaurants, orders">
-      <button onclick="searchAll()">Search</button>
+      <h2>Revenue reports</h2>
+      <div id="revenueReport" class="grid"></div>
+      <div id="restaurantRevenue" class="scroll-table"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Search system</h2>
+      <input id="q" placeholder="Search users, restaurants, orders" oninput="searchAll()">
       <div id="searchResults"></div>
     </section>
-    <section class="panel">
-      <h2>Restaurants</h2>
-      <div id="restaurants"></div>
+
+    <section class="columns">
+      <section class="panel">
+        <h2>Restaurant management</h2>
+        <div id="restaurants" class="scroll-table"></div>
+      </section>
+      <section class="panel">
+        <h2>User management</h2>
+        <div id="users" class="scroll-table"></div>
+      </section>
+      <section class="panel">
+        <h2>Delivery management</h2>
+        <div id="deliveryMen" class="scroll-table"></div>
+      </section>
     </section>
+
     <section class="panel">
-      <h2>Recent orders</h2>
-      <div id="orders"></div>
+      <h2>All orders</h2>
+      <div id="orders" class="scroll-table"></div>
     </section>
+
     <section class="panel">
       <h2>Activity logs</h2>
       <div id="logs"></div>
     </section>
   </main>
+
   <script>
     async function json(url, options) {
       const res = await fetch(url, options);
-      return res.json();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Request failed");
+      return data;
     }
     function rupee(value) {
       return "₹" + Math.round(Number(value) || 0);
     }
+    function statusPill(r) {
+      if (r.suspended) return '<span class="pill bad">Suspended</span>';
+      if (r.approved) return '<span class="pill ok">Approved</span>';
+      if (r.subscriptionStatus === "rejected") return '<span class="pill bad">Rejected</span>';
+      return '<span class="pill warn">Pending</span>';
+    }
     async function loadAdmin() {
-      const [stats, restaurants, orders, logs] = await Promise.all([
+      const [stats, report, restaurants, orders, users, deliveryMen, logs] = await Promise.all([
         json("/admin-stats"),
+        json("/admin-revenue-report"),
         json("/restaurants"),
         json("/admin-orders"),
+        json("/admin-users"),
+        json("/admin-delivery"),
         json("/activity-logs")
       ]);
+
       document.getElementById("stats").innerHTML = [
         ["Restaurants", stats.restaurants],
         ["Approved", stats.approvedRestaurants],
         ["Suspended", stats.suspendedRestaurants],
         ["Users", stats.users],
+        ["Delivery staff", stats.deliveryMen],
         ["Active orders", stats.activeOrders],
-        ["Revenue", rupee(stats.revenue)]
+        ["Completed", stats.completedOrders],
+        ["Daily revenue", rupee(stats.dailyRevenue)],
+        ["Weekly revenue", rupee(stats.weeklyRevenue)],
+        ["Monthly revenue", rupee(stats.monthlyRevenue)],
+        ["Total revenue", rupee(stats.revenue)]
       ].map(([label, value]) => `<div class="panel"><p>${label}</p><h2>${value}</h2></div>`).join("");
-      document.getElementById("restaurants").innerHTML = `<table><tr><th>Name</th><th>Status</th><th>Actions</th></tr>${restaurants.map(r => `
+
+      document.getElementById("revenueReport").innerHTML = [
+        ["Daily", rupee(report.daily)],
+        ["Weekly", rupee(report.weekly)],
+        ["Monthly", rupee(report.monthly)],
+        ["Total", rupee(report.total)]
+      ].map(([label, value]) => `<div class="panel"><p>${label}</p><h2>${value}</h2></div>`).join("");
+      document.getElementById("restaurantRevenue").innerHTML = `<table><tr><th>Restaurant</th><th>Orders</th><th>Revenue</th></tr>${report.byRestaurant.map(row => `
+        <tr><td>${row.hotelName}</td><td>${row.orders}</td><td>${rupee(row.revenue)}</td></tr>
+      `).join("")}</table>`;
+
+      document.getElementById("restaurants").innerHTML = `<table><tr><th>Name</th><th>City</th><th>Status</th><th>Actions</th></tr>${restaurants.map(r => `
         <tr>
-          <td>${r.hotelName}</td>
-          <td>${r.approved ? "Approved" : "Pending"} ${r.suspended ? "· Suspended" : ""}</td>
+          <td>${r.hotelName}<br><small>${r.username}</small></td>
+          <td>${r.city || "-"}</td>
+          <td>${statusPill(r)}</td>
           <td>
             <button onclick="approve(${r.id})">Approve</button>
             <button onclick="rejectRestaurant(${r.id})">Reject</button>
-            <button onclick="suspendRestaurant(${r.id})">Suspend</button>
+            <button onclick="suspendRestaurant(${r.id})">${r.suspended ? "Unsuspend" : "Suspend"}</button>
           </td>
         </tr>
       `).join("")}</table>`;
-      document.getElementById("orders").innerHTML = orders.slice(0, 12).map(order => `
-        <div class="history-card"><strong>${order.orderId || order.id}</strong><p>${order.restaurantUsername} · ${order.status || "-"}</p></div>
-      `).join("") || "<p>No orders.</p>";
-      document.getElementById("logs").innerHTML = logs.slice(0, 20).map(log => `
-        <div class="history-card"><strong>${log.type}</strong><p>${log.message}</p></div>
+
+      document.getElementById("users").innerHTML = `<table><tr><th>Name</th><th>Mobile</th><th>Wallet</th><th>Referral</th></tr>${users.map(user => `
+        <tr><td>${user.name || "-"}</td><td>${user.mobile}</td><td>${rupee(user.wallet || 0)}</td><td>${user.referralCode || "-"}</td></tr>
+      `).join("")}</table>`;
+
+      document.getElementById("deliveryMen").innerHTML = `<table><tr><th>Name</th><th>Username</th><th>Restaurant</th><th>Status</th></tr>${deliveryMen.map(person => `
+        <tr><td>${person.name}</td><td>${person.username}</td><td>${person.restaurantName || person.restaurantUsername}</td><td>${person.active ? "Active" : "Inactive"}</td></tr>
+      `).join("")}</table>`;
+
+      document.getElementById("orders").innerHTML = `<table><tr><th>Order</th><th>Customer</th><th>Restaurant</th><th>Status</th><th>Total</th></tr>${orders.map(order => `
+        <tr>
+          <td>${order.orderId || order.id}<br><small>${new Date(order.createdAt || order.id).toLocaleString()}</small></td>
+          <td>${order.name || "-"}<br><small>${order.mobile || ""}</small></td>
+          <td>${order.restaurantUsername}</td>
+          <td>${String(order.status || (order.done ? "delivered" : "-")).replaceAll("_", " ")}</td>
+          <td>${rupee(order.pricing?.grandTotal || 0)}</td>
+        </tr>
+      `).join("")}</table>`;
+
+      document.getElementById("logs").innerHTML = logs.slice(0, 40).map(log => `
+        <div class="history-card">
+          <strong>${log.type}</strong>
+          <p>${log.message}</p>
+          <small>${new Date(log.createdAt || log.id).toLocaleString()}</small>
+        </div>
       `).join("") || "<p>No logs.</p>";
     }
     async function approve(id) {
@@ -92,12 +181,21 @@
       loadAdmin();
     }
     async function searchAll() {
-      const data = await json("/admin-search?q=" + encodeURIComponent(document.getElementById("q").value));
+      const query = document.getElementById("q").value.trim();
+      if (!query) {
+        document.getElementById("searchResults").innerHTML = "";
+        return;
+      }
+      const data = await json("/admin-search?q=" + encodeURIComponent(query));
       document.getElementById("searchResults").innerHTML = `
-        <p>${data.restaurants.length} restaurants, ${data.users.length} users, ${data.orders.length} orders found.</p>
+        <p>${data.restaurants.length} restaurants, ${data.users.length} users, ${data.deliveryMen.length} delivery staff, ${data.orders.length} orders found.</p>
+        ${data.restaurants.slice(0, 5).map(r => `<div class="history-card"><strong>${r.hotelName}</strong><p>${r.city || ""}</p></div>`).join("")}
+        ${data.users.slice(0, 5).map(user => `<div class="history-card"><strong>${user.name || "User"}</strong><p>${user.mobile}</p></div>`).join("")}
+        ${data.deliveryMen.slice(0, 5).map(person => `<div class="history-card"><strong>${person.name}</strong><p>${person.username} · ${person.restaurantUsername}</p></div>`).join("")}
+        ${data.orders.slice(0, 5).map(order => `<div class="history-card"><strong>${order.orderId || order.id}</strong><p>${order.restaurantUsername}</p></div>`).join("")}
       `;
     }
-    loadAdmin();
+    loadAdmin().catch(error => alert(error.message));
   </script>
 </body>
 </html>
