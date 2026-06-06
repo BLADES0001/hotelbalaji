@@ -68,6 +68,18 @@
       <div id="deliveryMen"></div>
     </section>
 
+    <section class="panel">
+      <h2>Apply for in-app advertisement</h2>
+      <p class="muted">Send an ad request to the owner. If approved, customers will see it once per app session.</p>
+      <div class="grid">
+        <input id="adTitle" placeholder="Advertisement title">
+        <input id="adMessage" placeholder="Advertisement message">
+        <input id="adImage" placeholder="Image URL (optional)">
+      </div>
+      <button onclick="applyAdvertisement()">Apply advertisement</button>
+      <div id="ads"></div>
+    </section>
+
     <section class="columns">
       <div class="panel">
         <h2>Pending orders</h2>
@@ -151,6 +163,7 @@
         ? data.completedOrders.slice(0, 8).map(order => `<div class="status-card"><strong>${order.orderId}</strong><p>${order.name || "Customer"} · delivered</p></div>`).join("")
         : "<p>No completed orders.</p>";
       renderDeliveryMen();
+      renderAds(data.advertisements || []);
     }
     async function updateStatus(orderId, status) {
       await json("/order-status/" + orderId, {
@@ -163,11 +176,12 @@
     function renderDeliveryMen() {
       const deliveryMen = window.currentDeliveryMen || [];
       document.getElementById("deliveryMen").innerHTML = deliveryMen.length
-        ? `<table><tr><th>Name</th><th>Username</th><th>Mobile</th><th>Status</th><th>Action</th></tr>${deliveryMen.map(person => `
+        ? `<table><tr><th>Name</th><th>Username</th><th>Mobile</th><th>Delivered today</th><th>Status</th><th>Action</th></tr>${deliveryMen.map(person => `
           <tr>
             <td>${person.name}</td>
             <td>${person.username}</td>
             <td>${person.mobile}</td>
+            <td>${person.deliveredTodayCount || 0} orders<br>₹${Math.round(person.deliveredTodayTotal || 0)}</td>
             <td>${person.active ? "Active" : "Inactive"}</td>
             <td><button onclick="toggleDeliveryMan(${person.id})">${person.active ? "Disable" : "Enable"}</button></td>
           </tr>
@@ -204,6 +218,29 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deliveryManId })
       });
+      await loadDashboard();
+    }
+    function renderAds(ads) {
+      document.getElementById("ads").innerHTML = ads.length
+        ? `<table><tr><th>Title</th><th>Status</th><th>Message</th></tr>${ads.map(ad => `
+          <tr><td>${ad.title}</td><td>${ad.status}</td><td>${ad.message}</td></tr>
+        `).join("")}</table>`
+        : "<p>No advertisement applications yet.</p>";
+    }
+    async function applyAdvertisement() {
+      const username = window.currentRestaurantUsername || document.getElementById("username").value.trim();
+      await json("/restaurant-advertisement/" + encodeURIComponent(username), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: document.getElementById("adTitle").value,
+          message: document.getElementById("adMessage").value,
+          image: document.getElementById("adImage").value
+        })
+      });
+      document.getElementById("adTitle").value = "";
+      document.getElementById("adMessage").value = "";
+      document.getElementById("adImage").value = "";
       await loadDashboard();
     }
     loadDashboard().catch(error => alert(error.message));

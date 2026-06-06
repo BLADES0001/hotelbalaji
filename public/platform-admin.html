@@ -73,6 +73,11 @@
     </section>
 
     <section class="panel">
+      <h2>Advertisement applications</h2>
+      <div id="ads" class="scroll-table"></div>
+    </section>
+
+    <section class="panel">
       <h2>Activity logs</h2>
       <div id="logs"></div>
     </section>
@@ -95,13 +100,14 @@
       return '<span class="pill warn">Pending</span>';
     }
     async function loadAdmin() {
-      const [stats, report, restaurants, orders, users, deliveryMen, logs] = await Promise.all([
+      const [stats, report, restaurants, orders, users, deliveryMen, ads, logs] = await Promise.all([
         json("/admin-stats"),
         json("/admin-revenue-report"),
         json("/restaurants"),
         json("/admin-orders"),
         json("/admin-users"),
         json("/admin-delivery"),
+        json("/admin-advertisements"),
         json("/activity-logs")
       ]);
 
@@ -142,8 +148,8 @@
         </tr>
       `).join("")}</table>`;
 
-      document.getElementById("users").innerHTML = `<table><tr><th>Name</th><th>Mobile</th><th>Wallet</th><th>Referral</th></tr>${users.map(user => `
-        <tr><td>${user.name || "-"}</td><td>${user.mobile}</td><td>${rupee(user.wallet || 0)}</td><td>${user.referralCode || "-"}</td></tr>
+      document.getElementById("users").innerHTML = `<table><tr><th>Name</th><th>Mobile</th><th>Referral</th></tr>${users.map(user => `
+        <tr><td>${user.name || "-"}</td><td>${user.mobile}</td><td>${user.referralCode || "-"}</td></tr>
       `).join("")}</table>`;
 
       document.getElementById("deliveryMen").innerHTML = `<table><tr><th>Name</th><th>Username</th><th>Restaurant</th><th>Status</th></tr>${deliveryMen.map(person => `
@@ -157,6 +163,18 @@
           <td>${order.restaurantUsername}</td>
           <td>${String(order.status || (order.done ? "delivered" : "-")).replaceAll("_", " ")}</td>
           <td>${rupee(order.pricing?.grandTotal || 0)}</td>
+        </tr>
+      `).join("")}</table>`;
+
+      document.getElementById("ads").innerHTML = `<table><tr><th>Restaurant</th><th>Title</th><th>Status</th><th>Actions</th></tr>${ads.map(ad => `
+        <tr>
+          <td>${ad.restaurantName}</td>
+          <td>${ad.title}<br><small>${ad.message}</small></td>
+          <td>${ad.status}</td>
+          <td>
+            <button onclick="reviewAd(${ad.id}, 'approve')">Accept</button>
+            <button onclick="reviewAd(${ad.id}, 'reject')">Reject</button>
+          </td>
         </tr>
       `).join("")}</table>`;
 
@@ -178,6 +196,10 @@
     }
     async function suspendRestaurant(id) {
       await json("/suspend-restaurant/" + id, { method: "POST" });
+      loadAdmin();
+    }
+    async function reviewAd(id, action) {
+      await json(`/admin-advertisements/${id}/${action}`, { method: "POST" });
       loadAdmin();
     }
     async function searchAll() {

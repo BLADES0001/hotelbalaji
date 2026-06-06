@@ -3,86 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Foodza OTP Login</title>
+  <title>Foodza Login</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      align-items: center;
-      background: linear-gradient(135deg, #111, #2d2107);
-      display: flex;
-      font-family: Arial, sans-serif;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-    .box {
-      background: #fff;
-      border-radius: 24px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
-      max-width: 400px;
-      padding: 30px 22px;
-      text-align: center;
-      width: 100%;
-    }
+    body { align-items: center; background: linear-gradient(135deg, #111827, #3f1720); display: flex; font-family: Arial, sans-serif; justify-content: center; min-height: 100vh; padding: 20px; }
+    .box { background: #fff; border-radius: 24px; box-shadow: 0 18px 50px rgba(0,0,0,.35); max-width: 410px; padding: 30px 22px; text-align: center; width: 100%; }
     .logo { margin-bottom: 10px; width: 90px; }
     h1 { color: #222; margin-bottom: 8px; }
-    p { color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
-    input {
-      border: 1px solid #ddd;
-      border-radius: 13px;
-      font-size: 16px;
-      margin-top: 12px;
-      padding: 14px;
-      width: 100%;
-    }
-    button {
-      background: #d89c13;
-      border: 0;
-      border-radius: 13px;
-      color: #111;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: 700;
-      margin-top: 12px;
-      padding: 14px;
-      width: 100%;
-    }
-    button:disabled { cursor: not-allowed; opacity: .6; }
-    .secondary { background: #222; color: white; }
-    .otp-panel {
-      background: #fff8e6;
-      border: 1px dashed #d89c13;
-      border-radius: 14px;
-      color: #5a3b00;
-      display: none;
-      margin-top: 14px;
-      padding: 12px;
-    }
+    p { color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 12px; }
+    input { border: 1px solid #ddd; border-radius: 13px; font-size: 16px; margin-top: 12px; padding: 14px; width: 100%; }
+    button { background: #f0566e; border: 0; border-radius: 13px; color: white; cursor: pointer; font-size: 16px; font-weight: 800; margin-top: 12px; padding: 14px; width: 100%; }
+    .secondary { background: #222; }
+    .link-btn { background: transparent; color: #f0566e; padding: 8px; }
+    .otp-panel { background: #fff0f3; border: 1px dashed #f0566e; border-radius: 14px; color: #7b1d2d; display: none; margin-top: 14px; padding: 12px; }
     .otp-panel strong { display: block; font-size: 22px; letter-spacing: 4px; margin-top: 6px; }
     .status { min-height: 20px; margin-top: 12px; }
-    .back-link {
-      color: #9b6b00;
-      display: inline-block;
-      font-size: 14px;
-      margin-top: 16px;
-      text-decoration: none;
-    }
   </style>
 </head>
 <body>
   <div class="box">
     <img src="/logo.png" class="logo" alt="Foodza">
-    <h1>Foodza OTP Login</h1>
-    <p>Enter your mobile number. Foodza will send a one-time passcode by SMS.</p>
+    <h1>Foodza Login</h1>
+    <p>Login with your password. Use OTP only if you forgot your password.</p>
 
-    <input type="text" id="name" placeholder="Your name (first time only)">
+    <input type="text" id="name" placeholder="Name for first-time signup">
     <input type="tel" id="mobile" placeholder="Mobile number" inputmode="numeric">
-    <button id="sendBtn" onclick="sendOtp()">Send OTP</button>
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="passwordLogin()">Login / Create password</button>
+    <button class="link-btn" onclick="showReset()">Forgot password? Reset with OTP</button>
 
-    <section id="otpSection" hidden>
+    <section id="resetSection" hidden>
+      <button class="secondary" onclick="sendOtp()">Send reset OTP</button>
       <input type="tel" id="otp" placeholder="Enter 6-digit OTP" inputmode="numeric" maxlength="6">
-      <button class="secondary" id="verifyBtn" onclick="verifyOtp()">Verify OTP & Login</button>
-      <button type="button" onclick="sendOtp()">Resend OTP</button>
+      <input type="password" id="newPassword" placeholder="New password">
+      <button onclick="resetPassword()">Reset password & Login</button>
     </section>
 
     <div id="devOtpBox" class="otp-panel">
@@ -92,28 +46,23 @@
     </div>
 
     <p id="status" class="status"></p>
-    <a class="back-link" href="/">Back to Foodza</a>
   </div>
 
   <script>
     const statusEl = document.getElementById("status");
-    const otpSection = document.getElementById("otpSection");
-    const devOtpBox = document.getElementById("devOtpBox");
-    const devOtp = document.getElementById("devOtp");
-
-    function formValues() {
+    function values() {
       return {
         name: document.getElementById("name").value.trim(),
         mobile: document.getElementById("mobile").value.replace(/\D/g, ""),
-        otp: document.getElementById("otp").value.trim()
+        password: document.getElementById("password").value,
+        otp: document.getElementById("otp").value.trim(),
+        newPassword: document.getElementById("newPassword").value
       };
     }
-
     function setStatus(message, isError = false) {
       statusEl.textContent = message;
       statusEl.style.color = isError ? "#b00020" : "#1f7a1f";
     }
-
     function saveSession(customer) {
       localStorage.removeItem("cart");
       localStorage.setItem("customerName", customer.name);
@@ -121,7 +70,6 @@
       localStorage.setItem("customer", JSON.stringify(customer));
       window.location.href = "/";
     }
-
     async function postJson(url, body) {
       const res = await fetch(url, {
         method: "POST",
@@ -129,51 +77,52 @@
         body: JSON.stringify(body)
       });
       const data = await res.json();
-      if (!res.ok || data.success === false) {
-        throw new Error(data.message || "Request failed");
-      }
+      if (!res.ok || data.success === false) throw new Error(data.message || "Request failed");
       return data;
     }
-
-    async function sendOtp() {
-      const data = formValues();
-      if (data.mobile.length < 10) {
-        setStatus("Enter a valid mobile number.", true);
-        return;
+    async function passwordLogin() {
+      const data = values();
+      if (data.mobile.length < 10 || data.password.length < 4) return setStatus("Enter valid mobile and 4+ character password.", true);
+      try {
+        const result = await postJson("/customer-password-auth", data);
+        saveSession(result.customer);
+      } catch (error) {
+        setStatus(error.message, true);
       }
-
-      document.getElementById("sendBtn").disabled = true;
+    }
+    function showReset() {
+      document.getElementById("resetSection").hidden = false;
+      setStatus("Send OTP only if you forgot your password.");
+    }
+    async function sendOtp() {
+      const data = values();
+      if (data.mobile.length < 10) return setStatus("Enter valid mobile number.", true);
       try {
         const result = await postJson("/customer-otp/request", { mobile: data.mobile });
-        otpSection.hidden = false;
         setStatus(result.message || "OTP sent.");
         if (result.devOtp) {
-          devOtp.textContent = result.devOtp;
-          devOtpBox.style.display = "block";
+          document.getElementById("devOtp").textContent = result.devOtp;
+          document.getElementById("devOtpBox").style.display = "block";
           document.getElementById("otp").value = result.devOtp;
         }
       } catch (error) {
         setStatus(error.message, true);
-      } finally {
-        document.getElementById("sendBtn").disabled = false;
       }
     }
-
-    async function verifyOtp() {
-      const data = formValues();
-      if (data.mobile.length < 10 || data.otp.length !== 6) {
-        setStatus("Enter mobile number and 6-digit OTP.", true);
-        return;
+    async function resetPassword() {
+      const data = values();
+      if (data.mobile.length < 10 || data.otp.length !== 6 || data.newPassword.length < 4) {
+        return setStatus("Enter mobile, 6-digit OTP, and 4+ character new password.", true);
       }
-
-      document.getElementById("verifyBtn").disabled = true;
       try {
-        const result = await postJson("/customer-otp/verify", data);
+        const result = await postJson("/customer-password-reset", {
+          mobile: data.mobile,
+          otp: data.otp,
+          password: data.newPassword
+        });
         saveSession(result.customer);
       } catch (error) {
         setStatus(error.message, true);
-      } finally {
-        document.getElementById("verifyBtn").disabled = false;
       }
     }
   </script>

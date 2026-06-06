@@ -30,6 +30,7 @@
         <p class="muted">Update packed, out-for-delivery, and delivered statuses.</p>
         <button onclick="logout()">Logout</button>
       </div>
+      <div id="summary" class="panel"></div>
       <div id="orders"></div>
     </section>
   </main>
@@ -68,7 +69,14 @@
       loadOrders();
     }
     async function loadOrders() {
-      const orders = await json("/delivery-orders/" + encodeURIComponent(deliveryMan.username));
+      const [orders, summary] = await Promise.all([
+        json("/delivery-orders/" + encodeURIComponent(deliveryMan.username)),
+        json("/delivery-summary/" + encodeURIComponent(deliveryMan.username))
+      ]);
+      document.getElementById("summary").innerHTML = `
+        <h2>Delivered today</h2>
+        <p><b>${summary.deliveredTodayCount}</b> orders · ₹${Math.round(summary.deliveredTodayTotal || 0)}</p>
+      `;
       document.getElementById("orders").innerHTML = orders.length ? orders.map(order => `
         <div class="order-card">
           <strong>${order.orderId}</strong>

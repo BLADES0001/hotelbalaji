@@ -8,7 +8,7 @@
   <style>
     body { padding: 18px; }
     .owner { margin: auto; max-width: 1150px; }
-    .topbar { align-items: center; display: flex; justify-content: space-between; margin-bottom: 14px; }
+    .topbar, .row { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
     .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
     .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); margin-bottom: 14px; padding: 16px; }
     table { border-collapse: collapse; width: 100%; }
@@ -22,31 +22,70 @@
 </head>
 <body>
   <main class="owner">
-    <div class="topbar">
-      <div>
-        <h1>Foodza Owner Panel</h1>
-        <p class="muted">Approve, reject, suspend, and review restaurant onboarding.</p>
-      </div>
-      <a href="/platform-admin.html">Platform admin</a>
-    </div>
-    <section id="stats" class="grid"></section>
-    <section class="panel">
-      <h2>Search restaurants</h2>
-      <input id="q" placeholder="Search restaurant, city, username" oninput="renderRestaurants()">
+    <section id="loginPanel" class="panel">
+      <h1>Owner Login</h1>
+      <p class="muted">Use owner credentials to manage restaurants and advertisements.</p>
+      <input id="ownerUsername" placeholder="Username">
+      <input id="ownerPassword" type="password" placeholder="Password">
+      <button onclick="ownerLogin()">Login</button>
     </section>
-    <section class="panel scroll">
-      <h2>Restaurant approvals</h2>
-      <div id="restaurants"></div>
+
+    <section id="ownerPanel" hidden>
+      <div class="topbar">
+        <div>
+          <h1>Foodza Owner Panel</h1>
+          <p class="muted">Approve, reject, suspend, and review restaurant advertisements.</p>
+        </div>
+        <div class="row">
+          <a href="/platform-admin.html">Platform admin</a>
+          <button onclick="logout()">Logout</button>
+        </div>
+      </div>
+      <section id="stats" class="grid"></section>
+      <section class="panel">
+        <h2>Search restaurants</h2>
+        <input id="q" placeholder="Search restaurant, city, username" oninput="renderRestaurants()">
+      </section>
+      <section class="panel scroll">
+        <h2>Restaurant approvals</h2>
+        <div id="restaurants"></div>
+      </section>
+      <section class="panel scroll">
+        <h2>Advertisement applications</h2>
+        <div id="ads"></div>
+      </section>
     </section>
   </main>
 
   <script>
     let restaurants = [];
+    let advertisements = [];
     async function json(url, options) {
       const res = await fetch(url, options);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Request failed");
+      if (!res.ok || data.success === false) throw new Error(data.message || "Request failed");
       return data;
+    }
+    async function ownerLogin() {
+      await json("/owner-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: document.getElementById("ownerUsername").value,
+          password: document.getElementById("ownerPassword").value
+        })
+      });
+      localStorage.setItem("ownerLoggedIn", "yes");
+      showOwnerPanel();
+    }
+    function logout() {
+      localStorage.removeItem("ownerLoggedIn");
+      location.reload();
+    }
+    function showOwnerPanel() {
+      document.getElementById("loginPanel").hidden = true;
+      document.getElementById("ownerPanel").hidden = false;
+      load();
     }
     function statusText(r) {
       if (r.suspended) return "Suspended";
@@ -55,11 +94,13 @@
       return "Pending";
     }
     async function load() {
-      const [stats, list] = await Promise.all([
+      const [stats, list, ads] = await Promise.all([
         json("/admin-stats"),
-        json("/restaurants")
+        json("/restaurants"),
+        json("/admin-advertisements")
       ]);
       restaurants = list;
+      advertisements = ads;
       document.getElementById("stats").innerHTML = [
         ["Restaurants", stats.restaurants],
         ["Approved", stats.approvedRestaurants],
@@ -69,6 +110,7 @@
         ["Revenue", "₹" + Math.round(stats.revenue || 0)]
       ].map(([label, value]) => `<div class="panel"><p>${label}</p><h2>${value}</h2></div>`).join("");
       renderRestaurants();
+      renderAds();
     }
     function renderRestaurants() {
       const q = document.getElementById("q").value.toLowerCase();
@@ -90,19 +132,28 @@
         `).join("")}
       </table>`;
     }
-    async function approve(id) {
-      await json("/approve-restaurant/" + id, { method: "POST" });
-      load();
+    function renderAds() {
+      document.getElementById("ads").innerHTML = advertisements.length ? `<table>
+        <tr><th>Restaurant</th><th>Title</th><th>Message</th><th>Status</th><th>Action</th></tr>
+        ${advertisements.map(ad => `
+          <tr>
+            <td>${ad.restaurantName}</td>
+            <td>${ad.title}</td>
+            <td>${ad.message}</td>
+            <td>${ad.status}</td>
+            <td>
+              <button class="approve" onclick="reviewAd(${ad.id}, 'approve')">Accept</button>
+              <button class="reject" onclick="reviewAd(${ad.id}, 'reject')">Reject</button>
+            </td>
+          </tr>
+        `).join("")}
+      </table>` : "<p>No advertisement applications.</p>";
     }
-    async function rejectRestaurant(id) {
-      await json("/reject-restaurant/" + id, { method: "POST" });
-      load();
-    }
-    async function suspendRestaurant(id) {
-      await json("/suspend-restaurant/" + id, { method: "POST" });
-      load();
-    }
-    load().catch(error => alert(error.message));
+    async function approve(id) { await json("/approve-restaurant/" + id, { method: "POST" }); load(); }
+    async function rejectRestaurant(id) { await json("/reject-restaurant/" + id, { method: "POST" }); load(); }
+    async function suspendRestaurant(id) { await json("/suspend-restaurant/" + id, { method: "POST" }); load(); }
+    async function reviewAd(id, action) { await json(`/admin-advertisements/${id}/${action}`, { method: "POST" }); load(); }
+    if (localStorage.getItem("ownerLoggedIn") === "yes") showOwnerPanel();
   </script>
 </body>
 </html>

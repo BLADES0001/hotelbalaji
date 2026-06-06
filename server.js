@@ -67,6 +67,8 @@ app.use((req, res, next) => {
       req.path.startsWith("/customer") || req.path.startsWith("/order-status/") ||
       req.path.startsWith("/admin") || req.path.startsWith("/restaurant-analytics/") ||
       req.path === "/coupons" || req.path === "/trending-foods" ||
+      req.path.startsWith("/admin-advertisements") || req.path === "/active-advertisement" ||
+      req.path.startsWith("/restaurant-advertisement") ||
       req.path === "/orders" || req.path === "/owner" ||
       req.path.startsWith("/delivery") || req.path.startsWith("/restaurant-delivery") ||
       req.path.startsWith("/recommendations/")) {
@@ -217,6 +219,7 @@ let coupons = readJsonFile("coupons.json", [
     active: true
   }
 ]);
+let advertisements = readJsonFile("advertisements.json", []);
 
 // ================= RESTAURANTS =================
 
@@ -425,6 +428,18 @@ app.post("/approve-restaurant/:id", (req, res) => {
 
 });
 
+app.post("/owner-login", (req, res) => {
+  const username = String(req.body.username || "");
+  const password = String(req.body.password || "");
+  if (username === "Pranav" && password === "Pranavd.g@123") {
+    return res.json({ success:true });
+  }
+  res.status(401).json({
+    success:false,
+    message:"Invalid owner username or password"
+  });
+});
+
 // LOAD SAVED ORDERS
 
 if (fs.existsSync("orders.json")) {
@@ -498,23 +513,7 @@ if (!String(req.body.mobile || "").trim()) {
   });
 }
 
-const customer = customers.find(item => item.mobile === String(req.body.mobile || "").trim());
 const grandTotal = Number(req.body.pricing?.grandTotal || 0);
-
-if (req.body.paymentMethod === "wallet") {
-  if (!customer) {
-    return res.status(400).json({
-      message:"Customer account is required for wallet payment"
-    });
-  }
-  if (Number(customer.wallet || 0) < grandTotal) {
-    return res.status(400).json({
-      message:"Insufficient wallet balance"
-    });
-  }
-  customer.wallet = Number(customer.wallet || 0) - grandTotal;
-  writeJsonFile("customers.json", customers);
-}
 
 const order = {
 
@@ -702,7 +701,6 @@ app.post("/customer-signup", (req, res) => {
     name,
     mobile,
     password: hashPassword(password),
-    wallet: 0,
     referralCode: "FZ" + mobile.slice(-4) + Math.floor(Math.random() * 900 + 100),
     addresses: [],
     favouriteRestaurants: [],
@@ -714,6 +712,64 @@ app.post("/customer-signup", (req, res) => {
   writeJsonFile("customers.json", customers);
   logActivity("customer_signup", `${name} signed up`, { mobile });
   res.status(201).json({
+    success:true,
+    customer: publicCustomer(customer)
+  });
+});
+
+app.post("/customer-password-auth", (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const mobile = String(req.body.mobile || "").replace(/\D/g, "");
+  const password = String(req.body.password || "").trim();
+  let customer = customers.find(item => item.mobile === mobile);
+
+  if (mobile.length < 10 || password.length < 4) {
+    return res.status(400).json({
+      success:false,
+      message:"Valid mobile and 4+ character password are required"
+    });
+  }
+
+  if (!customer) {
+    customer = {
+      id: Date.now(),
+      name: name || "Foodza Customer",
+      mobile,
+      password: hashPassword(password),
+      referralCode: "FZ" + mobile.slice(-4) + Math.floor(Math.random() * 900 + 100),
+      addresses: [],
+      favouriteRestaurants: [],
+      favouriteFoods: [],
+      createdAt: Date.now()
+    };
+    customers.push(customer);
+    writeJsonFile("customers.json", customers);
+    logActivity("customer_signup_password", `${customer.name} created password login`, { mobile });
+    return res.status(201).json({
+      success:true,
+      customer: publicCustomer(customer)
+    });
+  }
+
+  if (!customer.password) {
+    customer.name = name || customer.name;
+    customer.password = hashPassword(password);
+    writeJsonFile("customers.json", customers);
+    logActivity("customer_password_set", `${customer.name} set password`, { mobile });
+    return res.json({
+      success:true,
+      customer: publicCustomer(customer)
+    });
+  }
+
+  if (!verifyPassword(password, customer.password)) {
+    return res.status(401).json({
+      success:false,
+      message:"Invalid mobile or password"
+    });
+  }
+
+  res.json({
     success:true,
     customer: publicCustomer(customer)
   });
@@ -808,7 +864,6 @@ app.post("/customer-otp/verify", (req, res) => {
       name: name || "Foodza Customer",
       mobile,
       password: "",
-      wallet: 0,
       referralCode: "FZ" + mobile.slice(-4) + Math.floor(Math.random() * 900 + 100),
       addresses: [],
       favouriteRestaurants: [],
@@ -832,6 +887,37 @@ app.post("/customer-otp/verify", (req, res) => {
   });
 });
 
+app.post("/customer-password-reset", (req, res) => {
+  const mobile = String(req.body.mobile || "").replace(/\D/g, "");
+  const otp = String(req.body.otp || "").trim();
+  const password = String(req.body.password || "").trim();
+  const customer = customers.find(item => item.mobile === mobile);
+  const request = otpRequests
+    .filter(item => item.mobile === mobile)
+    .sort((a, b) => b.createdAt - a.createdAt)[0];
+
+  if (!customer) return res.status(404).json({ success:false, message:"Customer not found" });
+  if (password.length < 4) return res.status(400).json({ success:false, message:"New password must be at least 4 characters" });
+  if (!request || request.expiresAt < Date.now()) {
+    return res.status(400).json({ success:false, message:"OTP expired. Please request a new OTP." });
+  }
+  if (request.otpHash !== hashOtp(otp)) {
+    request.attempts += 1;
+    writeJsonFile("otpRequests.json", otpRequests);
+    return res.status(401).json({ success:false, message:"Invalid OTP" });
+  }
+
+  customer.password = hashPassword(password);
+  otpRequests = otpRequests.filter(item => item.mobile !== mobile);
+  writeJsonFile("customers.json", customers);
+  writeJsonFile("otpRequests.json", otpRequests);
+  logActivity("customer_password_reset", `${customer.name} reset password using OTP`, { mobile });
+  res.json({
+    success:true,
+    customer: publicCustomer(customer)
+  });
+});
+
 app.post("/customer-guest", (req, res) => {
   const name = String(req.body.name || "").trim();
   const mobile = String(req.body.mobile || "").trim();
@@ -849,7 +935,6 @@ app.post("/customer-guest", (req, res) => {
       name,
       mobile,
       password: "",
-      wallet: 0,
       referralCode: "FZ" + mobile.slice(-4) + Math.floor(Math.random() * 900 + 100),
       addresses: [],
       favouriteRestaurants: [],
@@ -1003,24 +1088,6 @@ app.get("/trending-foods", (req, res) => {
   res.json((soldFoods.length ? soldFoods : fallbackFoods).slice(0, 12));
 });
 
-app.post("/customer/:mobile/wallet/topup", (req, res) => {
-  const customer = customers.find(item => item.mobile === req.params.mobile);
-  const amount = Number(req.body.amount || 0);
-
-  if (!customer) return res.status(404).json({ message:"Customer not found" });
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return res.status(400).json({ message:"Enter a valid amount" });
-  }
-
-  customer.wallet = Number(customer.wallet || 0) + amount;
-  writeJsonFile("customers.json", customers);
-  logActivity("wallet_topup", `${customer.name} topped up wallet`, {
-    mobile:customer.mobile,
-    amount
-  });
-  res.json(publicCustomer(customer));
-});
-
 app.post("/customer/:mobile/referral/apply", (req, res) => {
   const customer = customers.find(item => item.mobile === req.params.mobile);
   const code = String(req.body.code || "").trim().toUpperCase();
@@ -1034,8 +1101,6 @@ app.post("/customer/:mobile/referral/apply", (req, res) => {
   if (customer.referredBy) return res.status(400).json({ message:"Referral already applied" });
 
   customer.referredBy = referrer.referralCode;
-  customer.wallet = Number(customer.wallet || 0) + 25;
-  referrer.wallet = Number(referrer.wallet || 0) + 25;
   writeJsonFile("customers.json", customers);
   logActivity("referral_applied", `${customer.name} used referral ${code}`, {
     customer:customer.mobile,
@@ -1116,15 +1181,83 @@ app.get("/restaurant-analytics/:username", (req, res) => {
 
 app.get("/restaurant-dashboard-data/:username", (req, res) => {
   const username = req.params.username;
+  const today = startOfDay(Date.now());
+  const restaurantDeliveryMen = deliveryMen
+    .filter(person => person.restaurantUsername === username)
+    .map(({ password, ...person }) => {
+      const deliveredToday = completedOrders.filter(order =>
+        order.deliveryManUsername === person.username &&
+        Number(order.completedAt || 0) >= today
+      );
+      return {
+        ...person,
+        deliveredTodayCount: deliveredToday.length,
+        deliveredTodayTotal: deliveredToday.reduce((sum, order) => sum + orderTotal(order), 0)
+      };
+    });
   res.json({
     analytics: analyticsForRestaurant(username),
     pendingOrders: orders.filter(order => order.restaurantUsername === username && order.status === "received"),
     acceptedOrders: orders.filter(order => order.restaurantUsername === username && ["preparing", "packed", "out_for_delivery"].includes(order.status)),
     completedOrders: completedOrders.filter(order => order.restaurantUsername === username),
-    deliveryMen: deliveryMen
-      .filter(person => person.restaurantUsername === username)
-      .map(({ password, ...person }) => person)
+    deliveryMen: restaurantDeliveryMen,
+    advertisements: advertisements.filter(ad => ad.restaurantUsername === username)
   });
+});
+
+app.post("/restaurant-advertisement/:username", (req, res) => {
+  const restaurant = restaurants.find(item => item.username === req.params.username);
+  if (!restaurant) return res.status(404).json({ message:"Restaurant not found" });
+
+  const title = String(req.body.title || "").trim();
+  const message = String(req.body.message || "").trim();
+  const image = String(req.body.image || "").trim();
+  if (!title || !message) {
+    return res.status(400).json({ message:"Advertisement title and message are required" });
+  }
+
+  const ad = {
+    id: Date.now(),
+    restaurantUsername: restaurant.username,
+    restaurantName: restaurant.hotelName,
+    title,
+    message,
+    image,
+    status: "pending",
+    createdAt: Date.now()
+  };
+  advertisements.push(ad);
+  writeJsonFile("advertisements.json", advertisements);
+  logActivity("advertisement_applied", `${restaurant.hotelName} applied for advertisement`, {
+    advertisementId: ad.id
+  });
+  res.status(201).json(ad);
+});
+
+app.get("/admin-advertisements", (req, res) => {
+  res.json(advertisements.slice().sort((a, b) => b.createdAt - a.createdAt));
+});
+
+app.post("/admin-advertisements/:id/:action", (req, res) => {
+  const ad = advertisements.find(item => item.id === Number(req.params.id));
+  if (!ad) return res.status(404).json({ message:"Advertisement not found" });
+  if (!["approve", "reject"].includes(req.params.action)) {
+    return res.status(400).json({ message:"Invalid action" });
+  }
+  ad.status = req.params.action === "approve" ? "approved" : "rejected";
+  ad.reviewedAt = Date.now();
+  writeJsonFile("advertisements.json", advertisements);
+  logActivity("advertisement_reviewed", `${ad.title} ${ad.status}`, {
+    advertisementId: ad.id
+  });
+  res.json(ad);
+});
+
+app.get("/active-advertisement", (req, res) => {
+  const active = advertisements
+    .filter(ad => ad.status === "approved")
+    .sort((a, b) => b.reviewedAt - a.reviewedAt)[0] || null;
+  res.json(active);
 });
 
 app.get("/restaurant-delivery/:username", (req, res) => {
@@ -1242,6 +1375,27 @@ app.get("/delivery-orders/:username", (req, res) => {
       ["packed", "out_for_delivery"].includes(order.status)
     )
   ));
+});
+
+app.get("/delivery-summary/:username", (req, res) => {
+  const person = deliveryMen.find(item => item.username === req.params.username);
+  if (!person) return res.status(404).json({ message:"Delivery staff not found" });
+  const today = startOfDay(Date.now());
+  const deliveredToday = completedOrders.filter(order =>
+    order.deliveryManUsername === person.username &&
+    Number(order.completedAt || 0) >= today
+  );
+  res.json({
+    deliveryMan: {
+      id: person.id,
+      name: person.name,
+      username: person.username,
+      restaurantUsername: person.restaurantUsername
+    },
+    deliveredToday,
+    deliveredTodayCount: deliveredToday.length,
+    deliveredTodayTotal: deliveredToday.reduce((sum, order) => sum + orderTotal(order), 0)
+  });
 });
 
 app.get("/admin-stats", (req, res) => {

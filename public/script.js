@@ -92,7 +92,6 @@ async function loadCustomer() {
       addresses: [],
       favouriteRestaurants: [],
       favouriteFoods: [],
-      wallet: 0,
       referralCode: ""
     };
     renderAddressSelect();
@@ -109,7 +108,6 @@ async function loadCustomer() {
       addresses: [],
       favouriteRestaurants: [],
       favouriteFoods: [],
-      wallet: 0,
       referralCode: ""
     };
   }
@@ -185,7 +183,6 @@ async function openProfilePage() {
     </div>
 
     <h3>Account extras</h3>
-    <p>Wallet: ${money(state.customer.wallet || 0)}</p>
     <p>Referral code: <b>${escapeHtml(state.customer.referralCode || "Coming soon")}</b></p>
     <div class="profile-grid">
       <input id="oldPassword" type="password" placeholder="Current password">
@@ -924,8 +921,7 @@ async function applyCoupon() {
 function showOrderConfirmation(order) {
   const paymentLabel = {
     cod: "Cash on delivery",
-    upi: "UPI payment placeholder",
-    wallet: "Foodza wallet"
+    upi: "UPI payment placeholder"
   }[order.paymentMethod] || "Cash on delivery";
 
   openModal(`
@@ -1073,18 +1069,10 @@ async function showFavouriteFoods() {
   `);
 }
 
-async function showWalletReferral() {
+async function showReferral() {
   await loadCustomer();
   openModal(`
-    <h2>Wallet & referral</h2>
-    <div class="history-card">
-      <strong>Wallet balance</strong>
-      <p>${money(state.customer.wallet || 0)}</p>
-    </div>
-    <div class="profile-grid">
-      <input id="walletAmount" type="number" min="1" placeholder="Top-up amount">
-      <button class="checkout-btn" type="button" onclick="topUpWallet()">Add money to wallet</button>
-    </div>
+    <h2>Referral</h2>
     <div class="history-card">
       <strong>Your referral code</strong>
       <p>${escapeHtml(state.customer.referralCode || "Coming soon")}</p>
@@ -1096,25 +1084,6 @@ async function showWalletReferral() {
   `);
 }
 
-async function topUpWallet() {
-  const amount = Number(document.getElementById("walletAmount").value || 0);
-  try {
-    state.customer = await fetchJson(`/customer/${encodeURIComponent(customerMobile)}/wallet/topup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount })
-    });
-    localStorage.setItem("customer", JSON.stringify(state.customer));
-    showWalletReferral();
-  } catch (error) {
-    openModal(`
-      <h2>Wallet top-up failed</h2>
-      <p>${escapeHtml(error.message || "Enter a valid top-up amount.")}</p>
-      <button class="checkout-btn" type="button" onclick="showWalletReferral()">Try again</button>
-    `);
-  }
-}
-
 async function applyReferralCode() {
   const code = document.getElementById("referralCodeInput").value;
   try {
@@ -1124,12 +1093,12 @@ async function applyReferralCode() {
       body: JSON.stringify({ code })
     });
     localStorage.setItem("customer", JSON.stringify(state.customer));
-    showWalletReferral();
+    showReferral();
   } catch (error) {
     openModal(`
       <h2>Referral failed</h2>
       <p>${escapeHtml(error.message || "Referral code could not be applied.")}</p>
-      <button class="checkout-btn" type="button" onclick="showWalletReferral()">Try again</button>
+      <button class="checkout-btn" type="button" onclick="showReferral()">Try again</button>
     `);
   }
 }
@@ -1298,6 +1267,26 @@ async function startApp() {
   await loadCustomer();
   await loadRestaurants();
   renderCart();
+  showApprovedAdvertisement();
 }
 
 startApp();
+
+async function showApprovedAdvertisement() {
+  try {
+    const ad = await fetchJson("/active-advertisement");
+    if (!ad) return;
+    const key = `foodzaAdShown:${ad.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "yes");
+    openModal(`
+      <h2>${escapeHtml(ad.title)}</h2>
+      ${ad.image ? `<img src="${escapeHtml(imageUrl(ad.image))}" alt="${escapeHtml(ad.title)}" style="width:100%;border-radius:16px;margin:10px 0;">` : ""}
+      <p>${escapeHtml(ad.message)}</p>
+      <p class="muted">${escapeHtml(ad.restaurantName || "Foodza partner")}</p>
+      <button class="checkout-btn" type="button" onclick="closeModal()">Close</button>
+    `);
+  } catch (error) {
+    console.warn("Advertisement could not be loaded", error);
+  }
+}
