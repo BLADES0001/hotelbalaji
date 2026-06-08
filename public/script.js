@@ -270,6 +270,24 @@ function deliveryCharge(restaurant) {
     : "Free delivery";
 }
 
+function distanceKm(from, to) {
+  if (!from || !to) return null;
+  const rad = value => value * Math.PI / 180;
+  const dLat = rad(Number(to.latitude) - Number(from.latitude));
+  const dLng = rad(Number(to.longitude) - Number(from.longitude));
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(Number(from.latitude))) * Math.cos(rad(Number(to.latitude))) *
+    Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function restaurantDistanceLabel(restaurant) {
+  const distance = distanceKm(state.customerLocation, restaurant.location);
+  const range = Number(restaurant.deliveryRange || 0);
+  if (distance === null) return range ? `Delivery up to ${range} km` : "Range unavailable";
+  return `${distance.toFixed(1)} km away${range ? (distance <= range ? " · In range" : " · Outside range") : ""}`;
+}
+
 function restaurantCard(restaurant, index = 0) {
   const status = restaurant.isOpen ? "Open" : "Closed";
   const isFavourite = state.customer?.favouriteRestaurants?.includes(restaurant.username);
@@ -288,6 +306,7 @@ function restaurantCard(restaurant, index = 0) {
             <span class="rating-badge">&#9733; ${restaurantRating(restaurant)}</span>
             <span>${deliveryTime(restaurant)}</span>
             <span>${deliveryCharge(restaurant)}</span>
+            <span>${restaurantDistanceLabel(restaurant)}</span>
           </div>
         </div>
       </button>
@@ -843,6 +862,16 @@ async function checkout() {
     }
   }
 
+  if (orderType === "delivery" && state.customerLocation) {
+    const restaurant = currentCartRestaurant();
+    const distance = distanceKm(state.customerLocation, restaurant?.location);
+    const range = Number(restaurant?.deliveryRange || 0);
+    if (distance !== null && range && distance > range) {
+      alert(`This location is ${distance.toFixed(1)} km away and outside the restaurant's ${range} km delivery range.`);
+      return;
+    }
+  }
+
   try {
     const order = await fetchJson("/order", {
       method: "POST",
@@ -896,7 +925,7 @@ function discountAmount(subtotal) {
   if (state.coupon.type === "percent") {
     return subtotal * (Number(state.coupon.value) / 100);
   }
-  return Number(state.coupon.value || 0);
+  return Math.min(subtotal, Number(state.coupon.value || 0));
 }
 
 async function applyCoupon() {
@@ -911,6 +940,16 @@ async function applyCoupon() {
     state.coupon = null;
     renderCart();
     alert("Invalid coupon");
+    return;
+  }
+  const subtotal = state.cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+  if (subtotal < Number(coupon.minOrderAmount || 0)) {
+    alert(`Minimum order amount is ${money(coupon.minOrderAmount)}.`);
+    return;
+  }
+  if ((coupon.productIds || []).length &&
+      !state.cart.some(item => coupon.productIds.includes(Number(item.id)))) {
+    alert("This coupon is only valid for selected products.");
     return;
   }
   state.coupon = coupon;
@@ -1173,6 +1212,115 @@ function getLiveLocation() {
   }, () => alert("Location access denied"));
 }
 
+function openCustomerMapPicker() {
+  openModal(`
+    <h2>Pick approximate delivery location</h2>
+    <p>Tap the full map or drag the marker to choose your delivery location.</p>
+    <div class="location-search-box">
+      <input id="customerLocationSearch" autocomplete="off" placeholder="Search area, street, landmark or city"
+        oninput="queueCustomerLocationSearch()">
+      <div id="customerLocationSuggestions" class="location-suggestions" hidden></div>
+    </div>
+    <button type="button" onclick="centerCustomerMapOnCurrentLocation()">Use my current location</button>
+    <div id="customerLocationMap" class="full-location-map"></div>
+    <p id="pickedMapCoordinates" class="muted">No point selected.</p>
+  `);
+  setTimeout(initializeCustomerLocationMap, 0);
+}
+
+let customerLocationMap;
+let customerLocationMarker;
+let customerLocationSearchTimer;
+let customerLocationResults = [];
+
+function queueCustomerLocationSearch() {
+  clearTimeout(customerLocationSearchTimer);
+  customerLocationSearchTimer = setTimeout(searchCustomerLocations, 350);
+}
+
+async function searchCustomerLocations() {
+  const input = document.getElementById("customerLocationSearch");
+  const suggestions = document.getElementById("customerLocationSuggestions");
+  const query = input?.value.trim();
+  if (!query || query.length < 3) {
+    suggestions.hidden = true;
+    return;
+  }
+  try {
+    customerLocationResults = await fetchJson(`/location-search?q=${encodeURIComponent(query)}`);
+    suggestions.innerHTML = customerLocationResults.length
+      ? customerLocationResults.map((result, index) =>
+          `<button type="button" onclick="selectCustomerLocationResult(${index})">${escapeHtml(result.name)}</button>`
+        ).join("")
+      : "<p>No locations found.</p>";
+    suggestions.hidden = false;
+  } catch (error) {
+    suggestions.innerHTML = "<p>Location search unavailable.</p>";
+    suggestions.hidden = false;
+  }
+}
+
+function selectCustomerLocationResult(index) {
+  const result = customerLocationResults[index];
+  if (!result) return;
+  document.getElementById("customerLocationSearch").value = result.name;
+  document.getElementById("customerLocationSuggestions").hidden = true;
+  setCustomerMapLocation(result.latitude, result.longitude);
+}
+
+function initializeCustomerLocationMap() {
+  if (!window.maplibregl) {
+    document.getElementById("pickedMapCoordinates").textContent = "Map could not load. Check your internet connection.";
+    return;
+  }
+  customerLocationMarker = null;
+  const initial = state.customerLocation || { latitude: 20.5937, longitude: 78.9629 };
+  customerLocationMap = new maplibregl.Map({
+    container: "customerLocationMap",
+    style: "https://tiles.openfreemap.org/styles/liberty",
+    center: [initial.longitude, initial.latitude],
+    zoom: state.customerLocation ? 15 : 4
+  });
+  customerLocationMap.addControl(new maplibregl.NavigationControl(), "top-right");
+  customerLocationMap.on("load", () => {
+    if (state.customerLocation) setCustomerMapLocation(initial.latitude, initial.longitude, false);
+  });
+  customerLocationMap.on("click", event => setCustomerMapLocation(event.lngLat.lat, event.lngLat.lng));
+}
+
+function setCustomerMapLocation(latitude, longitude, moveMap = true) {
+  state.customerLocation = { latitude, longitude, mapsLink: `https://www.google.com/maps?q=${latitude},${longitude}` };
+  if (!customerLocationMarker) {
+    customerLocationMarker = new maplibregl.Marker({ color: "#f0566e", draggable: true })
+      .setLngLat([longitude, latitude])
+      .addTo(customerLocationMap);
+    customerLocationMarker.on("dragend", () => {
+      const point = customerLocationMarker.getLngLat();
+      setCustomerMapLocation(point.lat, point.lng, false);
+    });
+  } else {
+    customerLocationMarker.setLngLat([longitude, latitude]);
+  }
+  if (moveMap) customerLocationMap.easeTo({
+    center: [longitude, latitude],
+    zoom: Math.max(customerLocationMap.getZoom(), 15)
+  });
+  document.getElementById("pickedMapCoordinates").textContent =
+    `Approximate coordinates: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+  document.getElementById("locationStatus").textContent =
+    `Approximate location selected: ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
+  renderRestaurants();
+}
+
+function centerCustomerMapOnCurrentLocation() {
+  if (!navigator.geolocation) return alert("Location is not supported by this browser.");
+  navigator.geolocation.getCurrentPosition(
+    position => setCustomerMapLocation(position.coords.latitude, position.coords.longitude),
+    () => alert("Location access was denied."),
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
 function toggleProfilePopup() {
   const popup = document.getElementById("profilePopup");
   popup.hidden = !popup.hidden;
@@ -1264,10 +1412,20 @@ if ("serviceWorker" in navigator) {
 }
 
 async function startApp() {
+  showLoginSplash();
   await loadCustomer();
   await loadRestaurants();
   renderCart();
   showApprovedAdvertisement();
+}
+
+function showLoginSplash() {
+  if (sessionStorage.getItem("showFoodzaSplash") !== "yes") return;
+  sessionStorage.removeItem("showFoodzaSplash");
+  const splash = document.getElementById("loginSplash");
+  if (!splash) return;
+  splash.hidden = false;
+  setTimeout(() => { splash.hidden = true; }, 3000);
 }
 
 startApp();

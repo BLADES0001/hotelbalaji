@@ -13,7 +13,7 @@
     .panel { background: white; border-radius: 18px; box-shadow: 0 3px 14px rgba(0,0,0,.06); margin-bottom: 14px; padding: 16px; }
     table { border-collapse: collapse; width: 100%; }
     td, th { border-bottom: 1px solid #eee; padding: 9px; text-align: left; vertical-align: top; }
-    button, input { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
+    button, input, select { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
     button { background: #fff0f3; color: #dd4059; cursor: pointer; font-weight: 800; }
     .approve { background: #e6f6e2; color: #287120; }
     .reject, .suspend { background: #fbe6e3; color: #a13a32; }
@@ -54,12 +54,29 @@
         <h2>Advertisement applications</h2>
         <div id="ads"></div>
       </section>
+      <section class="panel scroll">
+        <h2>Coupon manager</h2>
+        <p class="muted">Create discounts by amount or percentage. Product IDs are optional and comma separated.</p>
+        <div class="grid">
+          <input id="couponCode" placeholder="Coupon code">
+          <select id="couponType">
+            <option value="percent">Percentage</option>
+            <option value="amount">Amount</option>
+          </select>
+          <input id="couponValue" type="number" placeholder="Discount value">
+          <input id="couponMin" type="number" placeholder="Minimum order amount">
+          <input id="couponProducts" placeholder="Selected product IDs, e.g. 1,2,3">
+        </div>
+        <button onclick="createCoupon()">Create coupon</button>
+        <div id="coupons"></div>
+      </section>
     </section>
   </main>
 
   <script>
     let restaurants = [];
     let advertisements = [];
+    let coupons = [];
     async function json(url, options) {
       const res = await fetch(url, options);
       const data = await res.json();
@@ -94,13 +111,15 @@
       return "Pending";
     }
     async function load() {
-      const [stats, list, ads] = await Promise.all([
+      const [stats, list, ads, couponList] = await Promise.all([
         json("/admin-stats"),
         json("/restaurants"),
-        json("/admin-advertisements")
+        json("/admin-advertisements"),
+        json("/admin-coupons")
       ]);
       restaurants = list;
       advertisements = ads;
+      coupons = couponList;
       document.getElementById("stats").innerHTML = [
         ["Restaurants", stats.restaurants],
         ["Approved", stats.approvedRestaurants],
@@ -111,6 +130,7 @@
       ].map(([label, value]) => `<div class="panel"><p>${label}</p><h2>${value}</h2></div>`).join("");
       renderRestaurants();
       renderAds();
+      renderCoupons();
     }
     function renderRestaurants() {
       const q = document.getElementById("q").value.toLowerCase();
@@ -149,6 +169,44 @@
         `).join("")}
       </table>` : "<p>No advertisement applications.</p>";
     }
+    function renderCoupons() {
+      document.getElementById("coupons").innerHTML = coupons.length ? `<table>
+        <tr><th>Code</th><th>Discount</th><th>Minimum</th><th>Products</th><th>Status</th><th>Actions</th></tr>
+        ${coupons.map(coupon => `
+          <tr>
+            <td><strong>${coupon.code}</strong></td>
+            <td>${coupon.type === "percent" ? coupon.value + "%" : "Rs " + coupon.value}</td>
+            <td>Rs ${Number(coupon.minOrderAmount || 0)}</td>
+            <td>${(coupon.productIds || []).length ? coupon.productIds.join(", ") : "All products"}</td>
+            <td>${coupon.active ? "On" : "Off"}</td>
+            <td>
+              <button onclick="toggleCoupon(${coupon.id})">${coupon.active ? "Turn off" : "Start"}</button>
+              <button class="reject" onclick="deleteCoupon(${coupon.id})">Delete</button>
+            </td>
+          </tr>
+        `).join("")}
+      </table>` : "<p>No coupons created yet.</p>";
+    }
+    async function createCoupon() {
+      const productIds = document.getElementById("couponProducts").value
+        .split(",").map(value => Number(value.trim())).filter(Number.isFinite);
+      await json("/admin-coupons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: document.getElementById("couponCode").value,
+          type: document.getElementById("couponType").value,
+          value: Number(document.getElementById("couponValue").value),
+          minOrderAmount: Number(document.getElementById("couponMin").value || 0),
+          productIds,
+          active: true
+        })
+      });
+      ["couponCode", "couponValue", "couponMin", "couponProducts"].forEach(id => document.getElementById(id).value = "");
+      load();
+    }
+    async function toggleCoupon(id) { await json(`/admin-coupons/${id}/toggle`, { method: "POST" }); load(); }
+    async function deleteCoupon(id) { await json(`/admin-coupons/${id}`, { method: "DELETE" }); load(); }
     async function approve(id) { await json("/approve-restaurant/" + id, { method: "POST" }); load(); }
     async function rejectRestaurant(id) { await json("/reject-restaurant/" + id, { method: "POST" }); load(); }
     async function suspendRestaurant(id) { await json("/suspend-restaurant/" + id, { method: "POST" }); load(); }

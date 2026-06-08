@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "minOrderAmount": 0,
+    "productIds": [],
+    "code": "FOODZA10",
+    "type": "percent",
+    "value": 10,
+    "active": true
+  }
+]

@@ -64,6 +64,8 @@ font-size:14px;
 color:#666;
 text-align:center;
 }
+.map-picker{background:linear-gradient(135deg,#d8ead0,#b9d6e8);border:2px solid #9db9a3;border-radius:14px;cursor:crosshair;height:210px;margin-bottom:15px;position:relative}
+.map-marker{background:#d94b62;border:3px solid white;border-radius:50%;height:16px;position:absolute;transform:translate(-50%,-50%);width:16px}
 
 </style>
 
@@ -112,6 +114,13 @@ placeholder="Password">
 id="deliveryRange"
 type="number"
 placeholder="Delivery Range (KM)">
+
+<p>Choose approximate restaurant location on map:</p>
+<div id="restaurantMap" class="map-picker" onclick="pickRestaurantLocation(event)">
+<b id="restaurantMarker" class="map-marker" hidden></b>
+</div>
+<input id="latitude" type="number" step="any" placeholder="Latitude" readonly>
+<input id="longitude" type="number" step="any" placeholder="Longitude" readonly>
 
 <select
 id="deliveryType"
@@ -227,7 +236,11 @@ deliveryCharge:Number(
 document.getElementById(
 'deliveryCharge'
 ).value || 0
-)
+),
+
+latitude:Number(document.getElementById('latitude').value),
+
+longitude:Number(document.getElementById('longitude').value)
 
 };
 
@@ -262,6 +275,18 @@ window.location.reload();
 
 }
 
+}
+
+function pickRestaurantLocation(event){
+const rect=event.currentTarget.getBoundingClientRect();
+const x=Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width));
+const y=Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height));
+document.getElementById('latitude').value=(8+(1-y)*29).toFixed(6);
+document.getElementById('longitude').value=(68+x*29).toFixed(6);
+const marker=document.getElementById('restaurantMarker');
+marker.hidden=false;
+marker.style.left=(x*100)+'%';
+marker.style.top=(y*100)+'%';
 }
 
 </script>

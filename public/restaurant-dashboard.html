@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Foodza Restaurant Dashboard</title>
+  <link rel="stylesheet" href="/vendor/maplibre/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
   <style>
     body { padding: 18px; }
@@ -20,24 +21,51 @@
     select, input, button { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
     .status-card { border: 1px solid #eee; border-radius: 14px; margin-top: 10px; padding: 12px; }
     .status-card select { margin-top: 10px; width: 100%; }
+    .full-location-map { border: 1px solid #ccd5dc; border-radius: 16px; height: 390px; margin-bottom: 12px; overflow: hidden; width: 100%; z-index: 1; }
   </style>
 </head>
 <body>
   <main class="dashboard">
+    <section id="loginPanel" class="panel">
+      <h1>Restaurant Login</h1>
+      <p class="muted">Enter your restaurant username and password to manage your own dashboard.</p>
+      <div class="grid">
+        <input id="loginUsername" placeholder="Restaurant username">
+        <input id="loginPassword" type="password" placeholder="Password">
+      </div>
+      <button onclick="restaurantLogin()">Login</button>
+    </section>
+
+    <section id="dashboardPanel" hidden>
     <div class="topbar">
       <div>
         <h1>Restaurant Dashboard</h1>
         <p class="muted">Phase 7 analytics, sales, top foods, and live order status.</p>
       </div>
-      <a href="/">Back to Foodza</a>
+      <button onclick="restaurantLogout()">Logout</button>
     </div>
 
-    <div class="panel">
-      <input id="username" placeholder="Restaurant username" value="hotelbalajiinn">
-      <button onclick="loadDashboard()">Load dashboard</button>
-    </div>
+    <input id="username" type="hidden">
 
     <section id="stats" class="grid"></section>
+
+    <section class="panel">
+      <h2>Restaurant location and range</h2>
+      <p class="muted">Tap the map to set your approximate restaurant location. Customers will see distance and delivery range.</p>
+      <div class="location-search-box">
+        <input id="restaurantLocationSearch" autocomplete="off" placeholder="Search area, street, landmark or city" oninput="queueRestaurantLocationSearch()">
+        <div id="restaurantLocationSuggestions" class="location-suggestions" hidden></div>
+      </div>
+      <button onclick="centerRestaurantMapOnCurrentLocation()">Use current location</button>
+      <div id="restaurantMap" class="full-location-map"></div>
+      <div class="grid">
+        <input id="restaurantLatitude" type="number" step="any" placeholder="Latitude">
+        <input id="restaurantLongitude" type="number" step="any" placeholder="Longitude">
+        <input id="restaurantRange" type="number" placeholder="Delivery range KM">
+      </div>
+      <button onclick="saveRestaurantLocation()">Save location</button>
+      <p id="locationMessage" class="muted"></p>
+    </section>
 
     <section class="panel">
       <h2>Revenue chart</h2>
@@ -83,15 +111,17 @@
     <section class="columns">
       <div class="panel">
         <h2>Pending orders</h2>
-        <div id="pendingOrders"></div>
+      <div id="pendingOrders"></div>
       </div>
       <div class="panel">
         <h2>Accepted orders</h2>
         <div id="acceptedOrders"></div>
       </div>
     </section>
+    </section>
   </main>
 
+  <script src="/vendor/maplibre/maplibre-gl.js"></script>
   <script>
     const statuses = ["received", "preparing", "packed", "out_for_delivery", "delivered"];
     async function json(url, options) {
@@ -105,6 +135,34 @@
     }
     function statusLabel(status) {
       return String(status || "").replaceAll("_", " ");
+    }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[character]);
+    }
+    async function restaurantLogin() {
+      const data = await json("/restaurant-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: document.getElementById("loginUsername").value.trim(),
+          password: document.getElementById("loginPassword").value
+        })
+      });
+      localStorage.setItem("restaurantSession", JSON.stringify(data.restaurant));
+      showDashboard(data.restaurant);
+    }
+    function restaurantLogout() {
+      localStorage.removeItem("restaurantSession");
+      location.reload();
+    }
+    function showDashboard(restaurant) {
+      document.getElementById("loginPanel").hidden = true;
+      document.getElementById("dashboardPanel").hidden = false;
+      document.getElementById("username").value = restaurant.username;
+      setTimeout(() => initializeRestaurantMap(restaurant), 0);
+      loadDashboard();
     }
     function orderCard(order) {
       const deliveryMen = window.currentDeliveryMen || [];
@@ -130,6 +188,7 @@
     async function loadDashboard() {
       const username = document.getElementById("username").value.trim();
       const data = await json("/restaurant-dashboard-data/" + encodeURIComponent(username));
+      window.currentRestaurant = data.restaurant || {};
       window.currentRestaurantUsername = username;
       window.currentDeliveryMen = data.deliveryMen || [];
       const a = data.analytics;
@@ -164,6 +223,7 @@
         : "<p>No completed orders.</p>";
       renderDeliveryMen();
       renderAds(data.advertisements || []);
+      renderRestaurantLocation(data.restaurant || {});
     }
     async function updateStatus(orderId, status) {
       await json("/order-status/" + orderId, {
@@ -243,7 +303,111 @@
       document.getElementById("adImage").value = "";
       await loadDashboard();
     }
-    loadDashboard().catch(error => alert(error.message));
+    function renderRestaurantLocation(restaurant) {
+      const location = restaurant.location || {};
+      document.getElementById("restaurantLatitude").value = location.latitude || "";
+      document.getElementById("restaurantLongitude").value = location.longitude || "";
+      document.getElementById("restaurantRange").value = restaurant.deliveryRange || "";
+      if (location.latitude && location.longitude) {
+        setRestaurantMapLocation(Number(location.latitude), Number(location.longitude), false);
+        document.getElementById("locationMessage").textContent = `Saved location: ${Number(location.latitude).toFixed(4)}, ${Number(location.longitude).toFixed(4)}`;
+      }
+    }
+    let restaurantMap;
+    let restaurantMapMarker;
+    let restaurantSearchTimer;
+    let restaurantLocationResults = [];
+    function queueRestaurantLocationSearch() {
+      clearTimeout(restaurantSearchTimer);
+      restaurantSearchTimer = setTimeout(searchRestaurantLocations, 350);
+    }
+    async function searchRestaurantLocations() {
+      const input = document.getElementById("restaurantLocationSearch");
+      const suggestions = document.getElementById("restaurantLocationSuggestions");
+      const query = input.value.trim();
+      if (query.length < 3) {
+        suggestions.hidden = true;
+        return;
+      }
+      try {
+        restaurantLocationResults = await json(`/location-search?q=${encodeURIComponent(query)}`);
+        suggestions.innerHTML = restaurantLocationResults.length
+          ? restaurantLocationResults.map((result, index) =>
+              `<button type="button" onclick="selectRestaurantLocationResult(${index})">${escapeHtml(result.name)}</button>`
+            ).join("")
+          : "<p>No locations found.</p>";
+        suggestions.hidden = false;
+      } catch (error) {
+        suggestions.innerHTML = "<p>Location search unavailable.</p>";
+        suggestions.hidden = false;
+      }
+    }
+    function selectRestaurantLocationResult(index) {
+      const result = restaurantLocationResults[index];
+      if (!result) return;
+      document.getElementById("restaurantLocationSearch").value = result.name;
+      document.getElementById("restaurantLocationSuggestions").hidden = true;
+      setRestaurantMapLocation(result.latitude, result.longitude);
+    }
+    function initializeRestaurantMap(restaurant) {
+      if (restaurantMap || !window.maplibregl) return;
+      const location = restaurant.location || { latitude: 20.5937, longitude: 78.9629 };
+      restaurantMap = new maplibregl.Map({
+        container: "restaurantMap",
+        style: "https://tiles.openfreemap.org/styles/liberty",
+        center: [location.longitude, location.latitude],
+        zoom: restaurant.location ? 15 : 4
+      });
+      restaurantMap.addControl(new maplibregl.NavigationControl(), "top-right");
+      restaurantMap.on("click", event => setRestaurantMapLocation(event.lngLat.lat, event.lngLat.lng));
+      restaurantMap.on("load", () => {
+        if (restaurant.location) setRestaurantMapLocation(location.latitude, location.longitude, false);
+      });
+    }
+    function setRestaurantMapLocation(latitude, longitude, moveMap = true) {
+      if (!restaurantMap) return;
+      document.getElementById("restaurantLatitude").value = Number(latitude).toFixed(6);
+      document.getElementById("restaurantLongitude").value = Number(longitude).toFixed(6);
+      if (!restaurantMapMarker) {
+        restaurantMapMarker = new maplibregl.Marker({ color: "#dd4059", draggable: true })
+          .setLngLat([longitude, latitude])
+          .addTo(restaurantMap);
+        restaurantMapMarker.on("dragend", () => {
+          const point = restaurantMapMarker.getLngLat();
+          setRestaurantMapLocation(point.lat, point.lng, false);
+        });
+      } else {
+        restaurantMapMarker.setLngLat([longitude, latitude]);
+      }
+      if (moveMap) restaurantMap.easeTo({
+        center: [longitude, latitude],
+        zoom: Math.max(restaurantMap.getZoom(), 15)
+      });
+    }
+    function centerRestaurantMapOnCurrentLocation() {
+      if (!navigator.geolocation) return alert("Location is not supported.");
+      navigator.geolocation.getCurrentPosition(
+        position => setRestaurantMapLocation(position.coords.latitude, position.coords.longitude),
+        () => alert("Location access was denied."),
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+    async function saveRestaurantLocation() {
+      const username = window.currentRestaurantUsername || document.getElementById("username").value.trim();
+      const result = await json("/restaurant-location/" + encodeURIComponent(username), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: Number(document.getElementById("restaurantLatitude").value),
+          longitude: Number(document.getElementById("restaurantLongitude").value),
+          deliveryRange: Number(document.getElementById("restaurantRange").value)
+        })
+      });
+      document.getElementById("locationMessage").textContent = `Saved. Delivery range: ${result.deliveryRange || 0} km`;
+      await loadDashboard();
+    }
+    const savedRestaurant = JSON.parse(localStorage.getItem("restaurantSession") || "null");
+    if (savedRestaurant?.username) showDashboard(savedRestaurant);
   </script>
 </body>
 </html>

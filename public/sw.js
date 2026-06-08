@@ -1,4 +1,4 @@
-const CACHE_NAME = "foodza-shell-v12";
+const CACHE_NAME = "foodza-shell-v16";
 const APP_SHELL = [
   "/",
   "/index.html",

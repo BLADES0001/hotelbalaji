@@ -61,6 +61,7 @@ function logActivity(type, message, details = {}) {
 
 app.use(cors());
 app.use(express.json());
+app.use("/vendor/maplibre", express.static(path.join(__dirname, "node_modules", "maplibre-gl", "dist")));
 app.use((req, res, next) => {
   if (req.path === "/sw.js" || req.path.startsWith("/menu/") ||
       req.path === "/restaurants" || req.path.startsWith("/customer-orders/") ||
@@ -81,6 +82,35 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, "public")));
 console.log("Serving from:");
 console.log(path.join(__dirname, "public"));
+
+app.get("/location-search", async (req, res) => {
+  const query = String(req.query.q || "").trim();
+  if (query.length < 3) return res.json([]);
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("limit", "6");
+    url.searchParams.set("countrycodes", "in");
+    url.searchParams.set("addressdetails", "1");
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Foodza/1.0 (food delivery location search)",
+        "Accept-Language": "en"
+      }
+    });
+    if (!response.ok) throw new Error("Geocoder unavailable");
+    const results = await response.json();
+    res.json(results.map(item => ({
+      name: item.display_name,
+      latitude: Number(item.lat),
+      longitude: Number(item.lon),
+      type: item.type
+    })));
+  } catch (error) {
+    res.status(502).json({ message: "Location search is temporarily unavailable." });
+  }
+});
 
 // ================= MENU =================
 
@@ -213,12 +243,22 @@ let otpRequests = readJsonFile("otpRequests.json", []);
 let activityLogs = readJsonFile("activityLogs.json", []);
 let coupons = readJsonFile("coupons.json", [
   {
+    id: 1,
     code: "FOODZA10",
     type: "percent",
     value: 10,
+    minOrderAmount: 0,
+    productIds: [],
     active: true
   }
 ]);
+coupons = coupons.map((coupon, index) => ({
+  id: coupon.id || Date.now() + index,
+  minOrderAmount: 0,
+  productIds: [],
+  ...coupon,
+  code: String(coupon.code || "").toUpperCase()
+}));
 let advertisements = readJsonFile("advertisements.json", []);
 
 // ================= RESTAURANTS =================
@@ -276,9 +316,10 @@ app.post("/restaurant-login", (req, res) => {
 
   }
 
+  const { password, ...safeRestaurant } = restaurant;
   res.json({
     success:true,
-    restaurant
+    restaurant:safeRestaurant
   });
 
 });
@@ -341,6 +382,12 @@ app.post("/register-restaurant", (req, res) => {
 
     deliveryCharge:
       req.body.deliveryCharge,
+
+    location: req.body.latitude && req.body.longitude ? {
+      latitude: Number(req.body.latitude),
+      longitude: Number(req.body.longitude),
+      mapsLink: `https://www.google.com/maps?q=${Number(req.body.latitude)},${Number(req.body.longitude)}`
+    } : null,
 
     logo:"/logo.png",
 
@@ -1055,6 +1102,60 @@ app.get("/coupons", (req, res) => {
   res.json(coupons.filter(coupon => coupon.active));
 });
 
+app.get("/admin-coupons", (req, res) => res.json(coupons));
+
+app.post("/admin-coupons", (req, res) => {
+  const code = String(req.body.code || "").trim().toUpperCase();
+  const type = req.body.type === "amount" ? "amount" : "percent";
+  const value = Number(req.body.value);
+  if (!code || !Number.isFinite(value) || value <= 0) {
+    return res.status(400).json({ message: "Enter a code and valid discount value." });
+  }
+  if (coupons.some(coupon => coupon.code.toUpperCase() === code)) {
+    return res.status(409).json({ message: "Coupon code already exists." });
+  }
+  const coupon = {
+    id: Date.now(), code, type, value,
+    minOrderAmount: Math.max(0, Number(req.body.minOrderAmount) || 0),
+    productIds: Array.isArray(req.body.productIds) ? req.body.productIds.map(Number).filter(Number.isFinite) : [],
+    active: req.body.active !== false,
+    createdAt: Date.now()
+  };
+  coupons.push(coupon);
+  writeJsonFile("coupons.json", coupons);
+  res.status(201).json(coupon);
+});
+
+app.post("/admin-coupons/:id/toggle", (req, res) => {
+  const coupon = coupons.find(item => item.id === Number(req.params.id));
+  if (!coupon) return res.status(404).json({ message: "Coupon not found." });
+  coupon.active = !coupon.active;
+  writeJsonFile("coupons.json", coupons);
+  res.json(coupon);
+});
+
+app.delete("/admin-coupons/:id", (req, res) => {
+  const index = coupons.findIndex(item => item.id === Number(req.params.id));
+  if (index < 0) return res.status(404).json({ message: "Coupon not found." });
+  coupons.splice(index, 1);
+  writeJsonFile("coupons.json", coupons);
+  res.json({ success: true });
+});
+
+app.post("/restaurant-location/:username", (req, res) => {
+  const restaurant = restaurants.find(item => item.username === req.params.username);
+  if (!restaurant) return res.status(404).json({ message: "Restaurant not found." });
+  const latitude = Number(req.body.latitude);
+  const longitude = Number(req.body.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return res.status(400).json({ message: "Choose a valid map location." });
+  }
+  restaurant.location = { latitude, longitude, mapsLink: `https://www.google.com/maps?q=${latitude},${longitude}` };
+  if (Number(req.body.deliveryRange) > 0) restaurant.deliveryRange = Number(req.body.deliveryRange);
+  writeJsonFile("restaurants.json", restaurants);
+  res.json({ success: true, location: restaurant.location, deliveryRange: restaurant.deliveryRange });
+});
+
 app.get("/trending-foods", (req, res) => {
   const sales = {};
   allOrders().forEach(order => {
@@ -1181,6 +1282,8 @@ app.get("/restaurant-analytics/:username", (req, res) => {
 
 app.get("/restaurant-dashboard-data/:username", (req, res) => {
   const username = req.params.username;
+  const restaurant = restaurants.find(item => item.username === username);
+  if (!restaurant) return res.status(404).json({ message: "Restaurant not found" });
   const today = startOfDay(Date.now());
   const restaurantDeliveryMen = deliveryMen
     .filter(person => person.restaurantUsername === username)
@@ -1196,6 +1299,7 @@ app.get("/restaurant-dashboard-data/:username", (req, res) => {
       };
     });
   res.json({
+    restaurant: (({ password, ...safeRestaurant }) => safeRestaurant)(restaurant),
     analytics: analyticsForRestaurant(username),
     pendingOrders: orders.filter(order => order.restaurantUsername === username && order.status === "received"),
     acceptedOrders: orders.filter(order => order.restaurantUsername === username && ["preparing", "packed", "out_for_delivery"].includes(order.status)),

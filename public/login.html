@@ -64,6 +64,7 @@
       statusEl.style.color = isError ? "#b00020" : "#1f7a1f";
     }
     function saveSession(customer) {
+      sessionStorage.setItem("showFoodzaSplash", "yes");
       localStorage.removeItem("cart");
       localStorage.setItem("customerName", customer.name);
       localStorage.setItem("customerMobile", customer.mobile);

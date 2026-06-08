@@ -9,7 +9,7 @@
     "pincode": "574104",
     "username": "hotelbalajiinn",
     "password": "scrypt$31ef8dd7b449ae20e46e2b8f08935698$dcd4749b590063d30e8064d66989b530f9d72ba111e2f09481cb3d5daf2bd921dfb401e054ccab567ad07a889a397c87ab0648a9c1a3951e67333731a7dcf7df",
-    "deliveryRange": 5,
+    "deliveryRange": 6,
     "deliveryType": "custom",
     "deliveryCharge": 40,
     "logo": "/logo.png",
@@ -19,7 +19,12 @@
     "subscriptionStatus": "active",
     "approved": true,
     "createdAt": 1779799275560,
-    "isOpen": true
+    "isOpen": true,
+    "location": {
+      "latitude": 13.226617,
+      "longitude": 74.98467,
+      "mapsLink": "https://www.google.com/maps?q=13.226617,74.98467"
+    }
   },
   {
     "id": 1779938062301,

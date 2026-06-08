@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f0566e">
   <title>Foodza</title>
+  <link rel="stylesheet" href="/vendor/maplibre/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
   <link rel="manifest" href="/manifest.json">
 </head>
@@ -43,7 +44,6 @@
       <button class="side-link" type="button" onclick="detectCustomerLocation(); closeSideMenu()">Detect location</button>
       <button class="side-link" type="button" onclick="enableNotifications(); closeSideMenu()">Enable notifications</button>
       <button class="side-link" type="button" onclick="toggleDarkMode(); closeSideMenu()">Dark mode</button>
-      <a class="side-link side-anchor" href="/restaurant-dashboard.html">Restaurant dashboard</a>
       <section class="contact-card">
         <h3>Contact us</h3>
         <p>+91 9663729867</p>
@@ -174,6 +174,7 @@
         <select id="addressSelect" aria-label="Select delivery address"></select>
         <textarea id="deliveryInstructions" placeholder="Delivery instructions"></textarea>
         <button type="button" onclick="getLiveLocation()">Share live location</button>
+        <button type="button" onclick="openCustomerMapPicker()">Pick approximate location on map</button>
         <p id="locationStatus"></p>
       </div>
       <select id="paymentMethod" aria-label="Payment method">
@@ -193,6 +194,14 @@
     </div>
   </section>
 
+  <section id="loginSplash" class="login-splash" hidden>
+    <div class="splash-logo">Foodza</div>
+    <div class="scooter-road"><div class="scooter"><i></i><i></i></div></div>
+    <h2>Indian app for Indian restaurants</h2>
+    <div class="verified-mark"><span></span> Verified</div>
+  </section>
+
+  <script src="/vendor/maplibre/maplibre-gl.js"></script>
   <script src="/script.js"></script>
 </body>
 </html>

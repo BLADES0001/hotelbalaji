@@ -1455,3 +1455,28 @@ a {
   font-weight: 800;
   text-decoration: none;
 }
+
+.full-location-map { border: 1px solid #ccd5dc; border-radius: 18px; height: min(420px,55vh); margin: 12px 0; overflow: hidden; width: 100%; z-index: 1; }
+.location-search-box { margin: 12px 0; position: relative; }
+.location-search-box input { border: 1px solid #ccd5dc; border-radius: 13px; box-sizing: border-box; font-size: 15px; padding: 13px 15px; width: 100%; }
+.location-suggestions { background: white; border: 1px solid #dfe3e8; border-radius: 13px; box-shadow: 0 12px 28px rgba(25,35,48,.16); left: 0; max-height: 240px; overflow-y: auto; position: absolute; right: 0; top: calc(100% + 5px); z-index: 20; }
+.location-suggestions button { background: white; border: 0; border-bottom: 1px solid #edf0f2; border-radius: 0; color: #29313d; display: block; font-weight: 600; padding: 12px 14px; text-align: left; width: 100%; }
+.location-suggestions button:hover { background: #fff3f5; box-shadow: none; transform: none; }
+.location-suggestions p { margin: 0; padding: 13px; }
+.map-label { color: #36556a; font-size: 11px; font-weight: 900; position: absolute; }
+.map-label.north { left: 50%; top: 8px; }.map-label.south { bottom: 8px; left: 50%; }
+.map-label.west { left: 8px; top: 50%; }.map-label.east { right: 8px; top: 50%; }
+.map-marker { background: #f0566e; border: 3px solid white; border-radius: 50% 50% 50% 0; height: 22px; position: absolute; transform: translate(-50%,-100%) rotate(-45deg); width: 22px; }
+.login-splash { align-items: center; background: linear-gradient(145deg,#fff,#fff2f4); display: flex; flex-direction: column; inset: 0; justify-content: center; position: fixed; z-index: 200; }
+.login-splash[hidden] { display: none; }
+.splash-logo { color: #f0566e; font-size: clamp(48px,15vw,84px); font-weight: 950; letter-spacing: -.06em; }
+.login-splash h2 { color: #29313d; font-size: 18px; margin-top: 18px; }
+.scooter-road { border-bottom: 3px solid #ccd1d8; height: 70px; margin-top: 25px; overflow: hidden; position: relative; width: min(440px,86vw); }
+.scooter { animation: scooter-pass 2.2s ease-in-out forwards; background: #f0566e; border-radius: 15px 20px 5px 5px; bottom: 10px; height: 27px; left: -80px; position: absolute; width: 58px; }
+.scooter::before { background: #ffc857; border-radius: 4px; content: ""; height: 20px; left: 34px; position: absolute; top: -18px; width: 24px; }
+.scooter i { background: #29313d; border: 4px solid white; border-radius: 50%; bottom: -12px; height: 14px; position: absolute; width: 14px; }
+.scooter i:first-child { left: 5px; }.scooter i:last-child { right: 4px; }
+.verified-mark { align-items: center; bottom: 35px; color: #287120; display: flex; font-weight: 900; gap: 8px; position: absolute; }
+.verified-mark span { background: #2fa44f; border-radius: 50%; height: 22px; position: relative; width: 22px; }
+.verified-mark span::after { border: solid white; border-width: 0 2px 2px 0; content: ""; height: 9px; left: 8px; position: absolute; top: 4px; transform: rotate(45deg); width: 5px; }
+@keyframes scooter-pass { from { left: -80px; } to { left: calc(100% + 20px); } }
