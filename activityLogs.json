@@ -231,5 +231,14 @@
       "status": "delivered"
     },
     "createdAt": 1780586306192
+  },
+  {
+    "id": 1780935650013,
+    "type": "customer_password_set",
+    "message": "Pranav set password",
+    "details": {
+      "mobile": "9880520082"
+    },
+    "createdAt": 1780935650013
   }
 ]
